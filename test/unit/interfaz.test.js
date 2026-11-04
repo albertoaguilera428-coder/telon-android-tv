@@ -43,6 +43,16 @@ test('al final de una fila, a los lados el foco se queda quieto: no salta en dia
   assert.equal(tvRemote.pickNextFocus(actual, [rect(400, 250, 60, 200)], 'right'), 0);
 });
 
+test('abajo, un elemento ancho que pasa por debajo cuenta como misma columna aunque su centro quede lejos', () => {
+  // Como en Ajustes: «Cerrar sesión» angosto a la derecha, una tarjeta ancha debajo y un
+  // interruptor a la derecha más abajo. El foco tiene que ir a la tarjeta, no saltarla.
+  const cerrarSesion = rect(800, 0, 150, 40);
+  const tarjetaAncha = rect(0, 120, 1000, 80);
+  const interruptor = rect(830, 400, 80, 40);
+  assert.equal(tvRemote.pickNextFocus(cerrarSesion, [interruptor, tarjetaAncha], 'down'), 1);
+  assert.equal(tvRemote.pickNextFocus(rect(830, 500, 80, 40), [cerrarSesion, rect(0, 300, 1000, 80)], 'up'), 1);
+});
+
 test('si no hay nada en esa dirección, el foco no se mueve', () => {
   assert.equal(tvRemote.pickNextFocus(rect(0, 0), [rect(-300, 0)], 'right'), -1);
 });

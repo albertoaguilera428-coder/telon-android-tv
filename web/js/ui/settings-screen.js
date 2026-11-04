@@ -46,6 +46,9 @@ function settingsHTML() {
     <button type="button" class="set-card" data-act="setquality"><span class="itext"><b>Calidad preferida</b><span>${escapeHTML(preferencias.quality())}</span></span><span class="set-arrow">${ICONOS.back}</span></button>
     <div class="set-card"><div class="itext"><b>Subtítulos automáticos</b><span>Activar subtítulos si están disponibles</span></div><button class="switch" role="switch" aria-checked="${preferencias.autoSubs()}" data-act="togglesubs"><i></i></button></div>
     <div class="set-card"><div class="itext"><b>Subtítulos en dramas cortos</b><span>Activar subtítulos en series de Narto Drama</span></div><button class="switch" role="switch" aria-checked="${preferencias.nartoSubs()}" data-act="togglenartosubs"><i></i></button></div></div>
+  <div class="set-section"><label>Contenido</label>
+    <button type="button" class="set-card" data-act="tab:addons"><span class="itext"><b>Addons</b><span>Instalar, activar o quitar las fuentes de catálogos y videos</span></span><span class="set-arrow">${ICONOS.back}</span></button>
+  </div>
   <div class="set-section"><label>Datos</label>
     <button type="button" class="set-card" data-act="reloadaddons"><span class="itext"><b>Recargar catálogos</b><span>Vuelve a pedir el contenido a tus addons</span></span></button>
     <button type="button" class="set-card" data-act="clearhist"><span class="itext"><b>Borrar historial</b><span>${Object.keys(estado.historial).length} elementos</span></span></button>

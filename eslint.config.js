@@ -60,7 +60,7 @@ module.exports = [
   },
   {
     // Estas funciones se evalúan dentro de Chromium (page.evaluate).
-    files: ['test/e2e/visual.test.js', 'scripts/medir-rendimiento.mjs'],
+    files: ['test/e2e/visual.test.js', 'test/e2e/recorrido-completo.test.js', 'test/support/persona.js', 'scripts/medir-rendimiento.mjs'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } }
   }
 ];

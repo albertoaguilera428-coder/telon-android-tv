@@ -65,11 +65,21 @@ function translateTizenKey(codigoTizen) {
     : null;
 }
 
-// En un campo de texto, OK abre el teclado en pantalla e izquierda/derecha mueven el cursor: esas
-// las atiende el sistema. Arriba y abajo sí se llevan, para poder salir del campo.
-const TECLAS_DEL_CAMPO = [13, 37, 39];
+// En un campo de texto, OK abre el teclado en pantalla y las flechas de lado mueven el cursor:
+// esas las atiende el sistema. Pero con el cursor ya en el borde, la flecha sale del campo: si
+// no, desde el enlace de Addons no había forma de llegar a «Instalar», que está a su derecha.
+// Arriba y abajo siempre se llevan, para poder salir del campo.
 const isTextField = elemento => Boolean(elemento && elemento.matches && elemento.matches('input:not([type=checkbox]):not([type=radio]):not([type=button]), textarea'));
-const belongsToTextField = evento => TECLAS_DEL_CAMPO.includes(evento.keyCode) && isTextField(evento.target);
+
+function belongsToTextField(evento) {
+  const campo = evento.target;
+  if (!isTextField(campo)) return false;
+  if (evento.keyCode === 13) return true;
+  if (evento.keyCode !== 37 && evento.keyCode !== 39) return false;
+  // Algunos tipos (email) no informan el cursor: ahí las flechas quedan para el sistema.
+  if (campo.selectionStart === null || campo.selectionStart === undefined) return true;
+  return evento.keyCode === 37 ? campo.selectionStart > 0 : campo.selectionEnd < campo.value.length;
+}
 
 function handleTizenKeydown(evento, salir) {
   if (evento.keyCode === TECLA_ATRAS_TIZEN) {

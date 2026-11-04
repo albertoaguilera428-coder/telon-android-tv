@@ -16,19 +16,14 @@ con un aviso: es una puerta del pipeline, no de cada máquina.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
-const http = require('http');
 const path = require('path');
-const { execFileSync } = require('child_process');
-const { buildSync } = require('esbuild');
-const { route } = require('../support/fixtures');
+const { RAIZ, PAQUETE, packageApp, startStaticServer, platformInitScript, answerFromFixtures } = require('../support/navegador');
 
 // ============================================================
 // CONSTANTES
 // ============================================================
 
-const RAIZ = path.join(__dirname, '..', '..');
 const CAPTURAS = path.join(RAIZ, 'build', 'capturas');
-const PAQUETE = path.join(RAIZ, 'build', 'web-pruebas');
 const DISPOSITIVOS = [
   { nombre: 'celular', modo: 'android-phone', viewport: { width: 390, height: 844 }, escala: 3, tactil: true },
   { nombre: 'tablet', modo: 'android-phone', viewport: { width: 820, height: 1180 }, escala: 2, tactil: true },
@@ -37,66 +32,12 @@ const DISPOSITIVOS = [
   { nombre: 'android-tv', modo: 'android-tv', viewport: { width: 960, height: 540 }, escala: 2, tactil: false, respetaMeta: true },
   { nombre: 'samsung', modo: 'tizen', viewport: { width: 1920, height: 1080 }, escala: 1, tactil: false }
 ];
-const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp' };
 
 // ============================================================
 // ENTORNO
 // ============================================================
 
-// Se empaqueta una vez, como para el APK. avatar-prueba.js expone el redimensionado de fotos
-// para probarlo con el canvas real de Chromium (el paquete no expone nada hacia afuera).
-function packageApp() {
-  execFileSync(process.execPath, [path.join(RAIZ, 'scripts', 'empaquetar-web.mjs'), PAQUETE], { stdio: 'ignore' });
-  buildSync({ entryPoints: [path.join(RAIZ, 'web', 'js', 'ui', 'avatar-image.js')], bundle: true, format: 'iife', globalName: 'avatarImage', outfile: path.join(PAQUETE, 'avatar-prueba.js'), logLevel: 'error' });
-}
 packageApp();
-
-function startStaticServer() {
-  const servidor = http.createServer((peticion, respuesta) => {
-    const ruta = path.join(PAQUETE, decodeURIComponent(new URL(peticion.url, 'http://x').pathname));
-    if (!ruta.startsWith(PAQUETE) || !fs.existsSync(ruta) || fs.statSync(ruta).isDirectory()) { respuesta.writeHead(404); respuesta.end(); return; }
-    respuesta.writeHead(200, { 'Content-Type': TIPOS[path.extname(ruta)] || 'application/octet-stream' });
-    fs.createReadStream(ruta).pipe(respuesta);
-  });
-  return new Promise(resolver => servidor.listen(0, '127.0.0.1', () => resolver(servidor)));
-}
-
-// Se inyecta antes que la página: simula el puente de Android o la API de Tizen y deja un perfil creado.
-function platformInitScript(modo) {
-  return `
-    window.__violacionesCSP = [];
-    document.addEventListener('securitypolicyviolation', e => window.__violacionesCSP.push(e.violatedDirective + ' ' + e.blockedURI));
-    localStorage.setItem('telon.profiles', JSON.stringify([{ id: 'p1', name: 'Ana', color: '#B23A48', pin: '' }]));
-    localStorage.setItem('telon.activeProfile', JSON.stringify('p1'));
-    ${modo.startsWith('android') ? `window.TelonBridge = { isTv: () => ${modo === 'android-tv'}, setOrientation() {}, openEmbed() {}, closeEmbed() {}, downloadAndInstall() {}, openExternal() {} };` : ''}
-    ${modo === 'tizen' ? `window.tizen = { tvinputdevice: { registerKey() {} }, application: { getCurrentApplication: () => ({ exit() {} }) } };` : ''}
-  `;
-}
-
-// Pósters de prueba: ilustraciones SVG generadas (colores y formas según la URL) para ver el diseño
-// con imágenes reales y no solo con el respaldo de color.
-function posterArt(url) {
-  let semilla = 0;
-  for (const c of url) semilla = (semilla * 31 + c.charCodeAt(0)) >>> 0;
-  const tono = semilla % 360;
-  const color = (desplazamiento, luz) => `hsl(${(tono + desplazamiento) % 360},85%,${luz}%)`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${color(0, 55)}"/><stop offset="1" stop-color="${color(70, 22)}"/></linearGradient></defs>
-    <rect width="400" height="600" fill="url(#g)"/>
-    <circle cx="300" cy="170" r="130" fill="${color(150, 65)}" opacity=".55"/>
-    <circle cx="90" cy="420" r="160" fill="${color(220, 45)}" opacity=".45"/>
-    <path d="M0 470 Q200 380 400 480 L400 600 L0 600 Z" fill="${color(30, 12)}" opacity=".8"/></svg>`;
-}
-
-async function answerFromFixtures(solicitud) {
-  if (/^https:\/\/img\//.test(solicitud.request().url())) {
-    return solicitud.fulfill({ status: 200, body: posterArt(solicitud.request().url()), headers: { 'Content-Type': 'image/svg+xml' } });
-  }
-  const respuesta = route(solicitud.request().url());
-  if (respuesta.status) return solicitud.fulfill({ status: respuesta.status, body: '' });
-  const cuerpo = respuesta.text ?? JSON.stringify(respuesta.json);
-  return solicitud.fulfill({ status: 200, body: cuerpo, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': respuesta.text ? 'text/html' : 'application/json' } });
-}
 
 // Lo que se sale a la derecha obliga a hacer scroll horizontal: en TV ni siquiera se puede.
 const measureLayout = () => {
@@ -319,7 +260,8 @@ test('con el control de Android TV el foco recorre la pantalla, entra a la ficha
     const tarjeta = await pulsar('ArrowDown');
     assert.equal(tarjeta.accion, 'open');
     assert.equal(tarjeta.tapadoPorLaBarra, false, 'lo enfocado no queda escondido detrás de la barra');
-    assert.deepEqual(await pulsar('ArrowRight').then(f => f.enBarra), false, 'al final de la fila no salta a la barra');
+    assert.deepEqual(await pulsar('ArrowRight').then(f => f.enBarra), false, 'a los lados no salta a la barra');
+    const abierta = await foco();
 
     await pulsar('Enter');
     // La ficha se pinta dos veces (cargando y completa); el foco tiene que terminar en Reproducir.
@@ -332,7 +274,7 @@ test('con el control de Android TV el foco recorre la pantalla, entra a la ficha
     }
     await pagina.evaluate(() => window.telonBack());
     await pagina.waitForTimeout(150);
-    assert.equal((await foco()).clave, tarjeta.clave, 'al cerrar la ficha, el foco vuelve a la tarjeta que la abrió');
+    assert.equal((await foco()).clave, abierta.clave, 'al cerrar la ficha, el foco vuelve a la tarjeta que la abrió');
     await contexto.close();
     assert.deepEqual(errores, []);
   } finally {

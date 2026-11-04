@@ -47,7 +47,14 @@ npx stryker run --mutate web/js/domain/account.js   # un archivo: unos minutos
   `test/e2e/golden/`. Si un cambio de interfaz es intencional, se regenera con
   `UPDATE_GOLDEN=1 npm run test:e2e` y el diff se revisa en el PR.
 - `test/e2e/visual.test.js`: Chromium en tamaños de celular, tablet, Android TV y
-  Samsung; deja capturas en `build/capturas/`.
+  Samsung; deja capturas en `build/capturas/`. Incluye recorridos con el control remoto
+  (teclas físicas) por el reproductor, Ajustes, perfiles, búsqueda y biblioteca.
+- `test/e2e/recorrido-completo.test.js`: una persona nueva usa toda la app, de la primera
+  apertura a salir y volver, siguiendo `docs/pruebas/recorrido-completo.md`: una vez en
+  Android TV solo con flechas y OK (si el control no llega a una opción, falla) y otra en
+  el celular con toques.
+- `test/unit/control-remoto.test.js`: en todas las pantallas, cada acción tiene que ser un
+  botón, enlace o campo que el control pueda alcanzar.
 
 El pipeline (`.github/workflows/`) corre todo esto, más CodeQL y `npm audit`. La
 mutación corre una vez por semana.

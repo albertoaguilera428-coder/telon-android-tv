@@ -47,14 +47,22 @@ function isInDirection(direccion, dx, dy) {
   return dy <= -UMBRAL_DIRECCION_PX;
 }
 
+// Un elemento ancho que pasa por encima o por debajo del actual está en su columna aunque su
+// centro quede lejos: en Ajustes, desde «Cerrar sesión» (a la derecha) el foco saltaba por encima
+// de las tarjetas anchas hasta el interruptor de más abajo, y esas tarjetas quedaban sin alcanzar.
+const coversColumnOf = (rect, rectActual) => {
+  const centro = rectActual.left + rectActual.width / 2;
+  return rect.left <= centro && centro <= rect.left + rect.width;
+};
+
 // Preferimos lo que está en la misma fila (o columna); lo demás se penaliza fuerte para que el
 // foco no salte en diagonal a otra sección cuando todavía quedan tarjetas en la fila actual.
-function scoreCandidate(direccion, rectActual, dx, dy) {
+function scoreCandidate(direccion, rectActual, rect, dx, dy) {
   if (direccion === 'left' || direccion === 'right') {
     const mismaFila = Math.abs(dy) < Math.max(rectActual.height * 0.7, 25);
     return mismaFila ? Math.abs(dx) : Math.abs(dx) + Math.abs(dy) * 10;
   }
-  const mismaColumna = Math.abs(dx) < Math.max(rectActual.width * 0.7, 25);
+  const mismaColumna = Math.abs(dx) < Math.max(rectActual.width * 0.7, 25) || coversColumnOf(rect, rectActual);
   return mismaColumna ? Math.abs(dy) : Math.abs(dy) + Math.abs(dx) * 3;
 }
 
@@ -67,7 +75,7 @@ function pickNextFocus(rectActual, rectsCandidatos, direccion) {
     const dx = destino.x - origen.x, dy = destino.y - origen.y;
     if (!isInDirection(direccion, dx, dy)) return;
     if ((direccion === 'left' || direccion === 'right') && !sharesRow(rectActual, rect)) return;
-    const puntaje = scoreCandidate(direccion, rectActual, dx, dy);
+    const puntaje = scoreCandidate(direccion, rectActual, rect, dx, dy);
     if (puntaje < mejorPuntaje) { mejorPuntaje = puntaje; mejor = i; }
   });
   return mejor;

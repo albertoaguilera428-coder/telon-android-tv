@@ -93,6 +93,29 @@ test('en Android TV las flechas y OK los atiende la página y quedan marcados co
   app.close();
 });
 
+test('en un campo de texto las flechas de lado mueven el cursor y en el borde salen del campo', () => {
+  const app = loadApp({ modo: 'android-tv', hasta: 'js/infra/platform.js' });
+  const recibidas = [];
+  app.window._tvKey = codigo => recibidas.push(codigo);
+  const campo = app.document.createElement('input');
+  campo.value = 'https://x';
+  app.document.body.appendChild(campo);
+  const pulsar = keyCode => {
+    const evento = new app.window.KeyboardEvent('keydown', { keyCode, cancelable: true, bubbles: true });
+    campo.dispatchEvent(evento);
+    return evento.defaultPrevented;
+  };
+  campo.setSelectionRange(3, 3);
+  assert.deepEqual([pulsar(37), pulsar(39), pulsar(13)], [false, false, false], 'en medio del texto, el sistema mueve el cursor y OK abre el teclado');
+  campo.setSelectionRange(campo.value.length, campo.value.length);
+  assert.equal(pulsar(39), true, 'con el cursor al final, → sale del campo (por ejemplo, a «Instalar»)');
+  campo.setSelectionRange(0, 0);
+  assert.equal(pulsar(37), true, 'con el cursor al principio, ← sale del campo');
+  assert.equal(pulsar(40), true, 'abajo siempre sale del campo');
+  assert.deepEqual(recibidas, [22, 21, 20]);
+  app.close();
+});
+
 test('en un celular Android las flechas no se tocan (teclados físicos y escritura normal)', () => {
   const app = loadApp({ modo: 'android-phone', hasta: 'js/infra/platform.js' });
   const recibidas = [];
