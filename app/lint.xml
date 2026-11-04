@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Telón - Excepciones aceptadas del lint de Android
+Para: Telón TV
+De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+
+Cada excepción tiene su motivo. Si el motivo deja de ser cierto, se borra la línea.
+-->
+<lint>
+    <!-- Los íconos actuales ocupan todo el cuadro. Arreglarlo requiere un ícono nuevo del diseñador,
+         no código; mientras tanto el ícono adaptativo de Android 8+ se ve bien. -->
+    <issue id="IconLauncherShape" severity="ignore" />
+    <!-- El ícono monocromo (Android 13) necesita una silueta con transparencia que no existe aún;
+         usar el foreground actual (sin alfa) pintaría un cuadrado sólido. -->
+    <issue id="MonochromeLauncherIcon" severity="ignore" />
+    <!-- Versiones nuevas de dependencias y del SDK se actualizan en un cambio aparte, no en cada build. -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="OldTargetApi" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+</lint>

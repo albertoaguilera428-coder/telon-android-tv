@@ -1,5 +1,22 @@
+// ============================================================
+// Telón - Build de la app Android
+// Para: Telón TV
+// De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+//
+// La firma de release se lee de keystore.properties (fuera de git). Si no existe, el
+// release sale sin firmar en vez de firmarse con la clave de debug, que es pública.
+// ============================================================
 plugins {
     id 'com.android.application'
+}
+
+// ============================================================
+// FIRMA DE RELEASE
+// ============================================================
+def archivoFirma = rootProject.file('keystore.properties')
+def propiedadesFirma = new Properties()
+if (archivoFirma.exists()) {
+    archivoFirma.withInputStream { propiedadesFirma.load(it) }
 }
 
 android {
@@ -15,20 +32,35 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            if (archivoFirma.exists()) {
+                storeFile rootProject.file(propiedadesFirma['storeFile'])
+                storePassword propiedadesFirma['storePassword']
+                keyAlias propiedadesFirma['keyAlias']
+                keyPassword propiedadesFirma['keyPassword']
+            }
         }
     }
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
+            if (archivoFirma.exists()) signingConfig signingConfigs.release
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    // ============================================================
+    // PUERTAS DE CALIDAD
+    // ============================================================
+    // Una advertencia nueva rompe el build: las que aceptamos a conciencia están en lint.xml con su porqué.
+    lint {
+        abortOnError true
+        warningsAsErrors true
+        lintConfig file('lint.xml')
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
 }
