@@ -9,7 +9,7 @@ pestaña activa y arma la barra de navegación.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, toInitials, safeUrl, safeColor } = Telon.ui.dom;
+  const { $, escapeHTML, toneClass, toInitials, safeUrl, safeColor } = Telon.ui.dom;
   const plataforma = Telon.infra.platform;
   const { userMessageFor } = Telon.infra.errors;
   const { listResourceNames } = Telon.domain.catalog;
@@ -52,7 +52,7 @@ pestaña activa y arma la barra de navegación.
     const logo = safeUrl(m.logo) ? `<img src="${escapeHTML(safeUrl(m.logo))}" alt="" data-fallback="remove">` : '';
     // Quitar un addon pide dos toques: el primero arma la confirmación, el segundo borra.
     const confirmando = estado.confirmarBorrado === addon.base;
-    return `<div class="item"><div class="logo48" style="background:${colorFor(m.name)}">${logo || escapeHTML(toInitials(m.name))}</div>
+    return `<div class="item"><div class="logo48 ${toneClass(m.name)}">${logo || escapeHTML(toInitials(m.name))}</div>
       <div class="itext"><b>${escapeHTML(m.name)} <span style="font-weight:400">v${escapeHTML(m.version || '?')}</span></b><span>${escapeHTML(m.description || addon.base)}</span><div class="res">${recursos.map(r => `<i>${escapeHTML(r)}</i>`).join('')}</div></div>
       <button class="del ${confirmando ? 'sure' : ''}" data-act="del:${escapeHTML(addon.base)}" aria-label="Quitar ${escapeHTML(m.name)}">${confirmando ? 'Quitar' : ICONOS.trash}</button>
       <button class="switch" role="switch" aria-checked="${addon.enabled}" aria-label="Activar ${escapeHTML(m.name)}" data-act="toggle:${escapeHTML(addon.base)}"><i></i></button></div>`;

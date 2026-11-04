@@ -9,7 +9,7 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, safeUrl, safeColor } = Telon.ui.dom;
+  const { $, escapeHTML, toneClass, safeUrl, safeColor } = Telon.ui.dom;
   const { getCountryCode } = Telon.domain.countries;
   const { refKey } = Telon.domain.progress;
 
@@ -53,7 +53,7 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
     const imagen = poster ? `<img loading="lazy" src="${escapeHTML(poster)}" alt="" data-fallback="noimg">` : '';
     const pais = getCountryCode(ficha);
     const etiquetaPais = pais ? `<span class="tag">${escapeHTML(pais)}</span>` : '';
-    return `<div class="poster ${poster ? '' : 'noimg'}" style="background:${colorFor(ficha.name)}">${imagen}${etiquetaPais}<span class="ptitle">${escapeHTML(ficha.name)}</span>${extra}</div>`;
+    return `<div class="poster ${toneClass(ficha.name)}${poster ? '' : ' noimg'}">${imagen}${etiquetaPais}<span class="ptitle">${escapeHTML(ficha.name)}</span>${extra}</div>`;
   }
 
   function cardHTML(addon, tipo, ficha, extra = '', claseExtra = '') {

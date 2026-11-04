@@ -28,7 +28,8 @@ const SALIDA = path.join(RAIZ, 'build', 'tizen');
 const ICONO = path.join(RAIZ, 'app', 'src', 'main', 'res', 'mipmap-xxxhdpi', 'ic_launcher.png');
 // Tizen 5.5 (televisores 2020) trae Chromium 69: sin ?. ni ?? ni otras novedades.
 const OBJETIVO_JS = 'chrome69';
-const ARCHIVOS_ESTATICOS = ['index.html', 'style.css', 'logo.webp'];
+const ARCHIVOS_ESTATICOS = ['index.html', 'logo.webp'];
+const CARPETAS_ESTATICAS = ['fonts'];
 
 // ============================================================
 // PASOS
@@ -53,8 +54,17 @@ function transpileScript(rutaRelativa) {
   fs.writeFileSync(destino, code);
 }
 
+// El CSS también se rebaja: esbuild convierte inset en top/right/bottom/left y otras propiedades
+// que Chromium 69 no entiende. No puede inventar gap en flexbox (Chromium 84): eso se ve en README.
+function transpileStyles() {
+  const css = fs.readFileSync(path.join(WWW, 'style.css'), 'utf8');
+  const { code } = transformSync(css, { loader: 'css', target: OBJETIVO_JS, sourcefile: 'style.css', legalComments: 'inline' });
+  fs.writeFileSync(path.join(SALIDA, 'style.css'), code);
+}
+
 function copyStaticFiles() {
   ARCHIVOS_ESTATICOS.forEach(archivo => fs.copyFileSync(path.join(WWW, archivo), path.join(SALIDA, archivo)));
+  CARPETAS_ESTATICAS.forEach(carpeta => fs.cpSync(path.join(WWW, carpeta), path.join(SALIDA, carpeta), { recursive: true }));
   fs.copyFileSync(path.join(RAIZ, 'tizen', 'config.xml'), path.join(SALIDA, 'config.xml'));
   fs.copyFileSync(ICONO, path.join(SALIDA, 'icon.png'));
 }
@@ -94,6 +104,7 @@ function main() {
   cleanOutput();
   const scripts = listScripts(fs.readFileSync(path.join(WWW, 'index.html'), 'utf8'));
   scripts.forEach(transpileScript);
+  transpileStyles();
   copyStaticFiles();
   console.log(`App web lista en ${path.relative(RAIZ, SALIDA)} (${scripts.length} módulos, objetivo ${OBJETIVO_JS}).`);
 

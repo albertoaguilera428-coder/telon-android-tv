@@ -11,7 +11,7 @@ const fc = require('fast-check');
 const { loadApp, plain } = require('../support/app-driver');
 
 const app = loadApp({ hasta: 'js/ui/dom.js' });
-const { escapeHTML, colorFor, toInitials, COLORES, safeUrl, cssUrl, safeColor } = app.Telon.ui.dom;
+const { escapeHTML, toneFor, toneClass, toInitials, safeUrl, cssUrl, safeColor } = app.Telon.ui.dom;
 const { store } = app.Telon.infra.storage;
 test.after(() => app.close());
 
@@ -42,10 +42,12 @@ test('propiedad: la salida de escapeHTML nunca contiene < > " \' sin escapar y s
 // colorFor y toInitials
 // ============================================================
 
-test('propiedad: colorFor siempre devuelve el mismo color de la paleta para el mismo texto', () => {
+test('propiedad: cada título cae siempre en el mismo de los 6 tonos', () => {
   fc.assert(fc.property(fc.string(), texto => {
-    assert.ok(COLORES.includes(colorFor(texto)));
-    assert.equal(colorFor(texto), colorFor(texto));
+    const tono = toneFor(texto);
+    assert.ok(Number.isInteger(tono) && tono >= 0 && tono < 6);
+    assert.equal(toneFor(texto), tono);
+    assert.equal(toneClass(texto), 'tono-' + tono);
   }));
 });
 

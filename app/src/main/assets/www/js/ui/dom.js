@@ -12,8 +12,6 @@ Escapar HTML, buscar en el DOM y los colores e iniciales de las tarjetas sin ima
   // CONSTANTES
   // ============================================================
 
-  // Colores de respaldo para pósters sin imagen: cada serie siempre cae en el mismo.
-  const COLORES = ['#7B61FF', '#E8364F', '#2563EB', '#D946EF', '#0D9488', '#EA580C'];
   const COLORES_PERFIL = ['#B23A48', '#2F6DB5', '#2E8B6A', '#9B59B6', '#E67E22', '#1ABC9C'];
   const ENTIDADES_HTML = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -28,11 +26,15 @@ Escapar HTML, buscar en el DOM y los colores e iniciales de las tarjetas sin ima
   const escapeHTML = valor => String(valor === null || valor === undefined ? '' : valor)
     .replace(/[&<>"']/g, caracter => ENTIDADES_HTML[caracter]);
 
-  const colorFor = texto => {
+  // Índice de tono (0 a 5) para los degradados de pósters sin imagen: cada título cae siempre
+  // en el mismo, definido en style.css como .tono-N.
+  const CANTIDAD_TONOS = 6;
+  const toneFor = texto => {
     let hash = 0;
     for (const caracter of String(texto || '')) hash = (hash * 31 + caracter.charCodeAt(0)) | 0;
-    return COLORES[Math.abs(hash) % COLORES.length];
+    return Math.abs(hash) % CANTIDAD_TONOS;
   };
+  const toneClass = texto => 'tono-' + toneFor(texto);
 
   const toInitials = texto => String(texto || '?').trim().split(/\s+/).slice(0, 2)
     .map(palabra => palabra[0]).join('').toUpperCase();
@@ -82,5 +84,5 @@ Escapar HTML, buscar en el DOM y los colores e iniciales de las tarjetas sin ima
   document.addEventListener('error', handleImageError, true);
 
   Telon.ui = Telon.ui || {};
-  Telon.ui.dom = { COLORES, COLORES_PERFIL, $, escapeHTML, colorFor, toInitials, safeUrl, cssUrl, safeColor };
+  Telon.ui.dom = { COLORES_PERFIL, $, escapeHTML, toneFor, toneClass, toInitials, safeUrl, cssUrl, safeColor };
 })(window.Telon = window.Telon || {});

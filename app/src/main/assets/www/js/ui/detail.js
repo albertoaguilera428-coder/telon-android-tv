@@ -9,7 +9,7 @@ guardar en la lista y la grilla de episodios por temporada.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, cssUrl } = Telon.ui.dom;
+  const { $, escapeHTML, toneClass, cssUrl } = Telon.ui.dom;
   const { getCountryCode } = Telon.domain.countries;
   const { episodeLabel, episodeNumber, listSeasons, episodesInSeason } = Telon.domain.episodes;
   const { estado, refKey, isInLibrary, toggleLibrary } = Telon.app.state;
@@ -73,7 +73,7 @@ guardar en la lista y la grilla de episodios por temporada.
     const detalle = estado.detalle, contenedor = $('#detail');
     if (!detalle) { contenedor.hidden = true; contenedor.innerHTML = ''; return; }
     const ficha = detalle.ficha || detalle.referencia, fondo = cssUrl(ficha.background || ficha.poster);
-    contenedor.innerHTML = `<div class="dhero" style="background-color:${colorFor(ficha.name)};${fondo ? `background-image:${escapeHTML(fondo)}` : ''}"><button class="iconbtn" data-act="closedetail" aria-label="Volver">${ICONOS.back}</button></div>
+    contenedor.innerHTML = `<div class="dhero ${toneClass(ficha.name)}"${fondo ? ` style="--imagen:${escapeHTML(fondo)}"` : ''}><button class="iconbtn" data-act="closedetail" aria-label="Volver">${ICONOS.back}</button></div>
     <div class="dbody"><h1>${escapeHTML(ficha.name)}</h1>${detailBodyHTML(detalle, ficha)}</div>`;
   }
 

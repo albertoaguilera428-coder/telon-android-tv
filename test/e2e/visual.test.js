@@ -59,7 +59,25 @@ function platformInitScript(modo) {
   `;
 }
 
+// Pósters de prueba: ilustraciones SVG generadas (colores y formas según la URL) para ver el diseño
+// con imágenes reales y no solo con el respaldo de color.
+function posterArt(url) {
+  let semilla = 0;
+  for (const c of url) semilla = (semilla * 31 + c.charCodeAt(0)) >>> 0;
+  const tono = semilla % 360;
+  const color = (desplazamiento, luz) => `hsl(${(tono + desplazamiento) % 360},85%,${luz}%)`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${color(0, 55)}"/><stop offset="1" stop-color="${color(70, 22)}"/></linearGradient></defs>
+    <rect width="400" height="600" fill="url(#g)"/>
+    <circle cx="300" cy="170" r="130" fill="${color(150, 65)}" opacity=".55"/>
+    <circle cx="90" cy="420" r="160" fill="${color(220, 45)}" opacity=".45"/>
+    <path d="M0 470 Q200 380 400 480 L400 600 L0 600 Z" fill="${color(30, 12)}" opacity=".8"/></svg>`;
+}
+
 async function answerFromFixtures(solicitud) {
+  if (/^https:\/\/img\//.test(solicitud.request().url())) {
+    return solicitud.fulfill({ status: 200, body: posterArt(solicitud.request().url()), headers: { 'Content-Type': 'image/svg+xml' } });
+  }
   const respuesta = route(solicitud.request().url());
   if (respuesta.status) return solicitud.fulfill({ status: respuesta.status, body: '' });
   const cuerpo = respuesta.text ?? JSON.stringify(respuesta.json);

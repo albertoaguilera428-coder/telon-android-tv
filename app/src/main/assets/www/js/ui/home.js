@@ -10,7 +10,7 @@ los catálogos que declaran soportarla.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, cssUrl } = Telon.ui.dom;
+  const { $, escapeHTML, toneClass, cssUrl } = Telon.ui.dom;
   const { getCountryCode, getCountryLabel } = Telon.domain.countries;
   const { collectFilterOptions, resetStaleFilters, applyFilters, hasActiveFilters } = Telon.domain.catalog;
   const { progressPercent, continueWatching } = Telon.domain.progress;
@@ -34,7 +34,7 @@ los catálogos que declaran soportarla.
   // ============================================================
 
   function homeHTML() {
-    return `<header class="appbar"><span class="logo"><img src="logo.webp" alt="Telón" style="height:36px"></span><div style="display:flex">
+    return `<header class="appbar"><span class="logo"><img src="logo.webp" alt=""><span class="titulo-marca">TELÓN</span></span><div class="appbar-acciones">
     <button class="iconbtn" data-act="reloadaddons" aria-label="Recargar addons" title="Recargar addons">${ICONOS.refresh}</button>
     <button class="iconbtn" data-act="search" aria-label="Buscar">${ICONOS.search}</button>${miniAvatarHTML(perfiles.active())}</div></header>
     ${estado.busquedaAbierta ? `<div class="searchbar"><input id="q" type="search" placeholder="Buscar series, géneros, países…" value="${escapeHTML(estado.consulta)}" autocomplete="off"></div>` : ''}
@@ -68,9 +68,13 @@ los catálogos que declaran soportarla.
     const clave = registerCard({ base: addon.base, type: primero.type || visibles[0].cat.type, id: primero.id, name: primero.name, poster: primero.poster, country: pais });
     const imagenFondo = cssUrl(primero.background || primero.poster);
     const subtitulo = [(primero.genres || []).slice(0, 2).join(' · '), addon.manifest.name].filter(Boolean).join(' · ');
-    return `<button class="hero" data-act="open" data-k="${escapeHTML(clave)}" style="background-color:${colorFor(primero.name)};${imagenFondo ? `background-image:${escapeHTML(imagenFondo)}` : ''}">
-      <span class="badge">Destacado${pais ? ' · ' + escapeHTML(pais) : ''}</span>
-      <span class="herorow"><span><h2>${escapeHTML(primero.name)}</h2><div class="herosub">${escapeHTML(subtitulo)}</div></span><span class="playfab">${ICONOS.play}</span></span></button>`;
+    // La imagen viaja como variable CSS: style.css la usa en las dos capas (ambiente y arte).
+    const variableImagen = imagenFondo ? ` style="--imagen:${escapeHTML(imagenFondo)}"` : '';
+    return `<button class="hero ${toneClass(primero.name)}" data-act="open" data-k="${escapeHTML(clave)}"${variableImagen}>
+      <span class="hero-ambiente"></span><span class="hero-arte"></span>
+      <span class="hero-texto"><span class="badge">Destacado${pais ? ' · ' + escapeHTML(pais) : ''}</span>
+      <span class="hero-titulo">${escapeHTML(primero.name)}</span><span class="herosub">${escapeHTML(subtitulo)}</span>
+      <span class="hero-acciones"><span class="playfab">${ICONOS.play}Ver ahora</span></span></span></button>`;
   }
 
   function continueWatchingHTML() {
@@ -97,7 +101,7 @@ los catálogos que declaran soportarla.
       let encabezado = '';
       if (idAddon !== ultimoIdAddon) {
         ultimoIdAddon = idAddon;
-        encabezado = `<div class="section" style="margin-top:16px"><h2 style="font-size:26px;opacity:.5">${escapeHTML(ETIQUETAS_GRUPO[idAddon] || fila.addon.manifest.name)}</h2></div>`;
+        encabezado = `<div class="grupo"><span>${escapeHTML(ETIQUETAS_GRUPO[idAddon] || fila.addon.manifest.name)}</span></div>`;
       }
       return encabezado + catalogSectionHTML(fila);
     }).join('');
@@ -105,7 +109,7 @@ los catálogos que declaran soportarla.
 
   function noCatalogsHTML() {
     const motivo = estado.filasConError ? 'Los addons no respondieron.' : 'Tus addons activos no ofrecen catálogos.';
-    return `<div class="empty"><h3>Sin catálogos</h3><p>${motivo} Revisa que estén activos y que el servidor esté encendido.</p><div style="display:flex;gap:8px"><button class="btn" data-act="refresh">Reintentar</button><button class="btn out" data-act="tab:addons">Ver addons</button></div></div>`;
+    return `<div class="empty"><h3>Sin catálogos</h3><p>${motivo} Revisa que estén activos y que el servidor esté encendido.</p><div class="fila-acciones"><button class="btn" data-act="refresh">Reintentar</button><button class="btn out" data-act="tab:addons">Ver addons</button></div></div>`;
   }
 
   function homeBody() {
