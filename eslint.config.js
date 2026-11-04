@@ -59,8 +59,8 @@ module.exports = [
     languageOptions: { sourceType: 'module' }
   },
   {
-    // Las funciones de measureLayout se evalúan dentro de Chromium.
-    files: ['test/e2e/visual.test.js'],
+    // Estas funciones se evalúan dentro de Chromium (page.evaluate).
+    files: ['test/e2e/visual.test.js', 'scripts/medir-rendimiento.mjs'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } }
   }
 ];

@@ -112,10 +112,56 @@ sitios y Firebase, siempre a través de `infra/http.js`:
   descartan con un número de secuencia o token: siempre gana la última.
 - La búsqueda espera 350 ms a que se deje de escribir antes de consultar.
 
+**Rendimiento:** todo lo que depende de la cantidad de contenido es lineal (pintar el
+inicio, filtrar y mover el foco con el control, que recorre los elementos enfocables);
+no hay recorridos cuadráticos. Medido con `node scripts/medir-rendimiento.mjs` en
+Chromium headless (AMD EPYC, 2 núcleos):
+
+| Carga | Pintar inicio | Filtrar | Mover foco (por tecla) |
+|---|---|---|---|
+| 200 tarjetas | 2,2 ms | 1,7 ms | 0,9 ms |
+| 2.000 tarjetas | 20 ms | 17 ms | 6,6 ms (p95 17 ms) |
+
+Un televisor es de 5 a 10 veces más lento: con la carga normal (200–400 tarjetas) sobra
+margen. Si los catálogos crecen a miles de tarjetas o se nota demora en el control, lo
+primero es limitar `moveTvFocus` a los elementos cercanos a la pantalla. Antes de
+optimizar, medir con este mismo script.
+
 **No renombrar sin migración:** las claves de `localStorage` y los campos guardados de
 historial, lista y perfiles (ahí están los datos de los usuarios), los campos del
 protocolo Stremio y los nombres del puente (`TelonBridge`, `window._tvKey`,
 `window.telonBack`).
+
+## Seguridad
+
+El riesgo principal es el contenido de los addons, que son de terceros: títulos, pósters
+o géneros armados para inyectar código (XSS). Defensas:
+
+- Todo texto pasa por `escapeHTML` y toda URL por `safeUrl` o `cssUrl` (`js/ui/dom.js`):
+  solo `http(s)`, `data:image` o `blob`, y dentro de `url()` va codificada.
+- No hay manejadores inline (`onerror="…"`). Las imágenes rotas usan `data-fallback`.
+- Content Security Policy en `index.html`: solo scripts propios, sin JavaScript inline ni `eval`.
+- `test/e2e/seguridad.test.js` recorre todas las pantallas con un addon malicioso.
+- El puente de Android solo lo ve la página principal; el WebView de los embeds no lo
+  tiene. Los enlaces externos solo pueden ser `http(s)`.
+
+| Riesgo (OWASP 2025) | En Telón |
+|---|---|
+| SQL injection | No aplica: no hay base de datos; localStorage se usa con claves fijas. |
+| CSRF | No aplica: no hay servidor propio. Firebase recibe el token en el cuerpo, no por cookie. |
+| Control de acceso / IDOR | Las cuentas las controla Firebase. Los perfiles del dispositivo no son un límite de seguridad: no tienen PIN (el campo `pin` existe vacío). Agregarlo es decisión del producto. |
+| Autenticación | Firebase guarda y protege las contraseñas y limita los intentos. La app nunca registra tokens en la consola. Cerrar sesión borra el token del dispositivo, pero Firebase no permite revocarlo desde la app: sigue válido hasta su vencimiento (1 h). |
+
+**Datos y cifrado:**
+
+- No se guardan contraseñas ni hay cifrado propio.
+- Las fotos de perfil se guardan como Base64 (`data:`), que es una codificación, no una
+  protección. Se reducen a 256 px para que entren en el almacenamiento.
+- Firebase y los addons predeterminados van por HTTPS. HTTP queda permitido solo porque
+  hay addons en la red local (`http://192.168.…`).
+- La validación de certificados nunca se desactiva; el lint estricto de Android lo vigila.
+- Pendiente conocido: con `allowBackup` la copia de seguridad de Android incluye el
+  almacenamiento de la app (y con él, el token de sesión).
 
 ## Firma del APK de release
 
