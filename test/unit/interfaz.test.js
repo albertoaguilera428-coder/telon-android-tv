@@ -53,6 +53,53 @@ test('abajo, un elemento ancho que pasa por debajo cuenta como misma columna aun
   assert.equal(tvRemote.pickNextFocus(rect(830, 500, 80, 40), [cerrarSesion, rect(0, 300, 1000, 80)], 'up'), 1);
 });
 
+// ============================================================
+// BORDES EXACTOS DE LAS REGLAS DE DIRECCIÓN
+// ============================================================
+
+test('la distancia se mide entre centros, también con botones de distinto ancho', () => {
+  // Centros: actual 100, candidato 160 → está 60 px a la derecha.
+  assert.equal(tvRemote.pickNextFocus(rect(0, 0, 200, 40), [rect(150, 0, 20, 40)], 'right'), 0);
+  // Centros: actual 50, candidato 65 → solo 15 px: no cuenta como estar al lado.
+  assert.equal(tvRemote.pickNextFocus(rect(0, 0, 100, 40), [rect(60, 0, 10, 40)], 'right'), -1);
+});
+
+test('dos botones que apenas se tocan por arriba o por abajo no comparten fila', () => {
+  const actual = rect(0, 100, 100, 50);
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(300, 150, 100, 50)], 'right'), -1, 'el de abajo empieza justo donde termina el actual');
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(300, 50, 100, 50)], 'right'), -1, 'el de arriba termina justo donde empieza el actual');
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(300, 149, 100, 50)], 'right'), 0, 'con 1 px en común, sí');
+});
+
+test('a la izquierda también se prefiere la misma fila aunque otra esté más cerca en diagonal', () => {
+  const actual = rect(1000, 100, 100, 100);
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(850, 170, 100, 100), rect(600, 100, 100, 100)], 'left'), 1);
+});
+
+test('«misma fila» es estrictamente menos del 70 % del alto: justo en el límite ya no lo es', () => {
+  // Alto 100 → límite 70 px. A 70 px de desnivel se penaliza; un poco más lejos pero alineado gana.
+  const actual = rect(0, 0, 100, 100);
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(150, 70, 100, 100), rect(400, 0, 100, 100)], 'right'), 1);
+});
+
+test('abajo, un elemento ancho cuenta como misma columna solo si cubre el centro del actual', () => {
+  const actual = rect(800, 0, 150, 40); // centro en 875
+  const anchoQueNoLlega = rect(0, 120, 700, 80); // termina en 700, antes del centro
+  const mismaColumnaLejos = rect(830, 400, 80, 40);
+  assert.equal(tvRemote.pickNextFocus(actual, [anchoQueNoLlega, mismaColumnaLejos], 'down'), 1, 'el que no cubre el centro se penaliza');
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(875, 120, 300, 80), mismaColumnaLejos], 'down'), 0, 'empieza justo en el centro: lo cubre');
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(575, 120, 300, 80), mismaColumnaLejos], 'down'), 0, 'termina justo en el centro: lo cubre');
+});
+
+test('abajo, uno angosto apenas corrido (menos del 70 % del ancho) también es de la misma columna', () => {
+  const actual = rect(0, 0, 100, 40); // centro 50, límite 70 px
+  const corrido = rect(60, 100, 30, 40); // centro 75: 25 px a un lado, no cubre el centro
+  const ancho = rect(0, 150, 300, 40);
+  assert.equal(tvRemote.pickNextFocus(actual, [corrido, ancho], 'down'), 0, 'el corrido está más cerca y en la misma columna');
+  const justoEnElLimite = rect(105, 100, 30, 40); // centro 120: 70 px, ya no es la misma columna
+  assert.equal(tvRemote.pickNextFocus(actual, [justoEnElLimite, ancho], 'down'), 1);
+});
+
 test('si no hay nada en esa dirección, el foco no se mueve', () => {
   assert.equal(tvRemote.pickNextFocus(rect(0, 0), [rect(-300, 0)], 'right'), -1);
 });

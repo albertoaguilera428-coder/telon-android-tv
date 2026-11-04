@@ -286,13 +286,42 @@ test('mirando: ↑ o ↓ llevan el foco al primer botón de la barra lateral', a
 test('en los controles: las flechas recorren los botones y OK activa el enfocado', async () => {
   const { app, video, remoto, enfocado } = await openPlayer();
   remoto.handleTvKey(TECLA.ABAJO);
-  const primero = enfocado();
+  const primero = enfocado().dataset.p;
   remoto.handleTvKey(TECLA.ABAJO);
-  assert.notEqual(enfocado(), primero, 'baja por la barra lateral');
+  assert.notEqual(enfocado().dataset.p, primero, 'baja por la barra lateral (a otro botón, no el mismo repintado)');
   assert.equal(video.currentTime, 100, 'en los controles, las flechas no adelantan');
   const accion = enfocado().dataset.p;
+  assert.equal(accion, 'eps');
+  remoto.handleTvKey(TECLA.CENTRO);
+  assert.equal(app.Telon.app.state.estado.reproductor.panel, 'eps', 'el botón central activa el enfocado (Episodios abre su panel)');
+  app.close();
+});
+
+test('en los controles, OK también activa; una tecla desconocida no mueve el foco', async () => {
+  const { app, remoto, enfocado } = await openPlayer();
+  remoto.handleTvKey(TECLA.ABAJO);
+  remoto.handleTvKey(TECLA.ABAJO);
+  remoto.handleTvKey(65);
+  assert.equal(enfocado().dataset.p, 'eps', 'una tecla que no es de navegación no mueve el foco');
   remoto.handleTvKey(TECLA.ENTER);
-  assert.ok(app.Telon.app.state.estado.reproductor.panel || accion !== 'eps', 'OK activa el botón (Episodios abre su panel)');
+  assert.equal(app.Telon.app.state.estado.reproductor.panel, 'eps');
+  app.close();
+});
+
+test('cada tecla muestra los controles y programa que se oculten solos', async () => {
+  const { app, reproductor, remoto } = await openPlayer();
+  const antes = reproductor._temporizadorUi;
+  remoto.handleTvKey(TECLA.IZQUIERDA);
+  assert.notEqual(reproductor._temporizadorUi, antes, 'se programó ocultar los controles');
+  assert.ok(reproductor.temporizadores.has(reproductor._temporizadorUi));
+  app.close();
+});
+
+test('sin botones en el reproductor, ↑ o ↓ no fallan', async () => {
+  const { app, remoto, contenedor } = await openPlayer();
+  app.document.querySelector('#prail').innerHTML = '';
+  contenedor.querySelector('[data-p="back"]').remove();
+  assert.doesNotThrow(() => remoto.handleTvKey(TECLA.ABAJO));
   app.close();
 });
 
@@ -355,6 +384,9 @@ test('siguiente y anterior cambian de episodio sin pasarse de la lista', async (
   remoto.handleTvKey(TECLA.ANTERIOR);
   await app.settle();
   assert.equal(reproductor.sesion.indice, 1);
+  remoto.handleTvKey(TECLA.ANTERIOR);
+  await app.settle();
+  assert.equal(reproductor.sesion.indice, 0, 'anterior llega hasta el primero');
   app.close();
 });
 

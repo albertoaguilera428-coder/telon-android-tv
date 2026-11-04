@@ -178,36 +178,38 @@ const TECLAS_MIRANDO = {
 
 const hasKey = (tabla, codigo) => Object.prototype.hasOwnProperty.call(tabla, codigo);
 
+// Un botón del reproductor tiene el foco (el video o nada no cuentan).
 function controlHasFocus() {
-  const enfocado = document.activeElement, reproductor = document.getElementById('player');
-  return Boolean(enfocado && enfocado !== document.body && reproductor && reproductor.contains(enfocado) && enfocado.matches('button'));
+  const enfocado = document.activeElement;
+  return document.getElementById('player').contains(enfocado) && enfocado.matches('button');
 }
+
+const isOk = codigoTecla => codigoTecla === TECLA.CENTRO || codigoTecla === TECLA.ENTER;
 
 function revealControls(reproductor) {
   document.getElementById('player').classList.remove('hide-ui');
   scheduleHideUi(reproductor, OCULTAR_CONTROLES_TRAS_TECLA_MS);
 }
 
-// Devuelve true si la tecla ya se atendió.
 function handlePlayerKey(reproductor, codigoTecla) {
-  if (hasKey(TECLAS_MULTIMEDIA, codigoTecla)) { TECLAS_MULTIMEDIA[codigoTecla](reproductor); return true; }
+  if (hasKey(TECLAS_MULTIMEDIA, codigoTecla)) { TECLAS_MULTIMEDIA[codigoTecla](reproductor); return; }
   revealControls(reproductor);
   if (reproductor.panel || controlHasFocus()) {
-    if (codigoTecla === TECLA.CENTRO || codigoTecla === TECLA.ENTER) { document.activeElement.click(); return true; }
-    if (DIRECCION_POR_TECLA[codigoTecla]) { moveTvFocus(DIRECCION_POR_TECLA[codigoTecla]); return true; }
-    return false;
+    if (isOk(codigoTecla)) document.activeElement.click();
+    else if (DIRECCION_POR_TECLA[codigoTecla]) moveTvFocus(DIRECCION_POR_TECLA[codigoTecla]);
+    return;
   }
-  if (!hasKey(TECLAS_MIRANDO, codigoTecla)) return false;
-  TECLAS_MIRANDO[codigoTecla](reproductor);
-  return true;
+  if (hasKey(TECLAS_MIRANDO, codigoTecla)) TECLAS_MIRANDO[codigoTecla](reproductor);
 }
 
 function handleTvKey(codigoTecla) {
   const reproductor = estado.reproductor;
-  if (reproductor && reproductor.video && handlePlayerKey(reproductor, codigoTecla)) return;
-  if (codigoTecla === TECLA.CENTRO || codigoTecla === TECLA.ENTER) {
-    const enfocado = document.activeElement;
-    if (enfocado && enfocado !== document.body) enfocado.click();
+  // Con el reproductor abierto, la tecla la decide el reproductor y nada más: antes, lo que no
+  // atendía seguía al manejo general, que repetía lo mismo y escondía errores de esta parte.
+  if (reproductor && reproductor.video) { handlePlayerKey(reproductor, codigoTecla); return; }
+  // Sin nada enfocado el foco está en body, y un clic ahí no activa nada.
+  if (isOk(codigoTecla)) {
+    document.activeElement.click();
     return;
   }
   if (DIRECCION_POR_TECLA[codigoTecla]) moveTvFocus(DIRECCION_POR_TECLA[codigoTecla]);
