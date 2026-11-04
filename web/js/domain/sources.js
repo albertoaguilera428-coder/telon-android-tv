@@ -11,18 +11,20 @@ como llegó (el addon que responde primero va primero).
 
 const CALIDAD_AUTOMATICA = 'Auto';
 
-// "1080p" coincide con "1080p", "1080", "FullHD 1080"; no con "10800" ni "21080".
+// "1080p" coincide con "1080p", "1080", "FullHD 1080"; no con "10800" ni "21080". Una calidad sin
+// número ("Auto") no coincide con nada. Mayúsculas o minúsculas dan igual: solo cuentan los dígitos.
 function matchesQuality(fuente, calidad) {
   const numero = String(calidad).replace(/\D/g, '');
   if (!numero) return false;
-  const texto = ((fuente.name || '') + ' ' + (fuente.title || '')).toLowerCase();
-  return new RegExp('(^|\\D)' + numero + '(p|\\D|$)').test(texto);
+  const texto = (fuente.name || '') + ' ' + (fuente.title || '');
+  return new RegExp('(^|\\D)' + numero + '(\\D|$)').test(texto);
 }
 
 // Orden estable: las que coinciden adelante, sin cambiar el orden relativo de ningún grupo.
+// Con "Auto" ninguna coincide y el orden queda como llegó. Siempre devuelve una lista nueva.
 function rankByQuality(fuentes, calidad) {
-  if (!calidad || calidad === CALIDAD_AUTOMATICA) return fuentes.slice();
-  return [...fuentes.filter(f => matchesQuality(f, calidad)), ...fuentes.filter(f => !matchesQuality(f, calidad))];
+  const coinciden = fuentes.filter(f => matchesQuality(f, calidad));
+  return [...coinciden, ...fuentes.filter(f => !coinciden.includes(f))];
 }
 
 export { CALIDAD_AUTOMATICA, matchesQuality, rankByQuality };

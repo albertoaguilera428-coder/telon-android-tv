@@ -29,9 +29,22 @@ test('con una calidad elegida, esas fuentes van primero sin desordenar el resto'
   assert.deepEqual(plain(rankByQuality(lista, '1080p').map(f => f.name)), ['B 1080p', 'D 1080', 'A 720p', 'C']);
 });
 
-test('con "Auto" el orden queda como llegó', () => {
+test('con "Auto" el orden queda como llegó, en una lista nueva', () => {
   const lista = [fuente('A 720p'), fuente('B 1080p')];
-  assert.deepEqual(plain(rankByQuality(lista, 'Auto').map(f => f.name)), ['A 720p', 'B 1080p']);
+  const ordenadas = rankByQuality(lista, 'Auto');
+  assert.deepEqual(plain(ordenadas.map(f => f.name)), ['A 720p', 'B 1080p']);
+  assert.notEqual(ordenadas, lista, 'quien la reciba puede cambiarla sin tocar la original');
+});
+
+test('una calidad sin número ("Auto", vacía) no coincide con ninguna fuente', () => {
+  for (const calidad of ['Auto', '', undefined]) {
+    assert.equal(matchesQuality(fuente('HD 1080p'), calidad), false);
+    assert.equal(matchesQuality(fuente('Servidor'), calidad), false);
+  }
+});
+
+test('la calidad se reconoce sin importar mayúsculas: "1080P" y "1080p" son lo mismo', () => {
+  assert.equal(matchesQuality(fuente('FULL HD 1080P'), '1080p'), true);
 });
 
 test('propiedad: ordenar por calidad nunca agrega ni pierde fuentes', () => {
