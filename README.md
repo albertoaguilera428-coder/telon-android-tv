@@ -130,6 +130,35 @@ sitios y Firebase, siempre a través de `infra/http.js`:
   descartan con un número de secuencia o token: siempre gana la última.
 - La búsqueda espera 350 ms a que se deje de escribir antes de consultar.
 
+**Caché** (guía, sección 25): `infra/cache.js`, usada por SoloLatino y Narto con el patrón
+cache-aside (se consulta, y si falta se descarga y se guarda).
+
+- *Fuente de verdad:* los sitios y addons. La caché solo evita repetir descargas; lista,
+  historial y perfiles **no** son caché, son datos del usuario en el dispositivo.
+- *Frescura:* 10 minutos, porque los catálogos cambian poco. "Recargar addons" vacía las cachés
+  (invalidación explícita) y trae contenido nuevo.
+- *Claves:* incluyen todo lo que cambia el resultado (por ejemplo, tipo y slug en una ficha:
+  `/pelicula/x` y `/serie/x` son páginas distintas).
+- *Estampida:* una sola carga por clave. Una búsqueda pedía la misma página 4 veces (una por
+  catálogo de SoloLatino); ahora la pide 1 vez y los cuatro reciben el resultado.
+- *Errores:* no se guardan; el siguiente pedido vuelve a intentar.
+- *Tamaño:* 100 entradas por sitio; al llenarse se descarta lo usado hace más tiempo (LRU).
+- *Valores congelados:* todos reciben el mismo objeto y nadie puede modificarlo para los demás.
+- *Métricas:* `Telon.infra.sololatino.cacheStats()` y `Telon.infra.narto.cacheStats()`
+  (aciertos, fallos, descartes, cargas compartidas) desde `chrome://inspect`.
+
+No se usan, a propósito:
+
+- *Jitter en el vencimiento:* cada dispositivo vence a su propio ritmo, desde que abrió la
+  app; no hay un servidor que reciba todas las recargas juntas.
+- *stale-while-revalidate:* el contenido no es tan urgente como para justificarlo.
+- *Caché persistente:* guardar páginas en localStorage lo llenaba (ver la corrección del punto 18).
+
+Lo que viene de addons Stremio queda en la caché HTTP del WebView según los
+`Cache-Control` que envía cada addon. `version.json` se pide con `?t=` para no recibir una
+versión vieja. No hay cachés compartidas entre usuarios ni CDN, y nada personal pasa por
+una caché.
+
 **Rendimiento:** todo lo que depende de la cantidad de contenido es lineal (pintar el
 inicio, filtrar y mover el foco con el control, que recorre los elementos enfocables);
 no hay recorridos cuadráticos. Medido con `node scripts/medir-rendimiento.mjs` en
