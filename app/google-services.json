@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "280607387085",
+    "project_id": "inea-594c7",
+    "storage_bucket": "inea-594c7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:280607387085:android:46622343418fb398892884",
+        "android_client_info": {
+          "package_name": "app.telon"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "280607387085-suodjqsv08lqib38i4e0r9kr89a0omip.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.telon",
+            "certificate_hash": "b50790237085f08218dc5ff056166fe29229b52f"
+          }
+        },
+        {
+          "client_id": "280607387085-d9d5lk9q89p8nbf5hjv3r7ot4kunt130.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuT4FxjE8LYRasc5EOjFGcdgZb3IToK7E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "280607387085-d9d5lk9q89p8nbf5hjv3r7ot4kunt130.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
