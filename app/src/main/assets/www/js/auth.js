@@ -24,10 +24,13 @@ usamos, así que cambiarlo algún día por el SDK real no obliga a tocar las pan
   const LARGO_MINIMO_CLAVE = 6;
   const MENSAJES_REGISTRO = { 'auth/email-already-in-use': 'Ese correo ya tiene cuenta. Inicia sesión.', 'auth/invalid-email': 'Correo no válido.',
     'auth/weak-password': 'Contraseña muy débil.', 'EMAIL_EXISTS': 'Ese correo ya tiene cuenta. Inicia sesión.', 'INVALID_EMAIL': 'Correo no válido.',
-    'WEAK_PASSWORD': 'Contraseña muy débil (mín. 6 caracteres).', 'OPERATION_NOT_ALLOWED': 'Registro deshabilitado.' };
+    'WEAK_PASSWORD': 'Contraseña muy débil (mín. 6 caracteres).', 'OPERATION_NOT_ALLOWED': 'Registro deshabilitado.',
+    // Firebase limita los intentos por su cuenta; lo único que nos toca es explicarlo y no insistir.
+    'TOO_MANY_ATTEMPTS_TRY_LATER': 'Demasiados intentos. Espera unos minutos antes de volver a intentar.' };
   const MENSAJES_INGRESO = { 'auth/user-not-found': 'No hay cuenta con ese correo.', 'auth/wrong-password': 'Contraseña incorrecta.',
     'auth/invalid-credential': 'Correo o contraseña incorrectos.', 'EMAIL_NOT_FOUND': 'No hay cuenta con ese correo.', 'INVALID_PASSWORD': 'Contraseña incorrecta.',
-    'INVALID_LOGIN_CREDENTIALS': 'Correo o contraseña incorrectos.', 'USER_DISABLED': 'Cuenta deshabilitada.' };
+    'INVALID_LOGIN_CREDENTIALS': 'Correo o contraseña incorrectos.', 'USER_DISABLED': 'Cuenta deshabilitada.',
+    'TOO_MANY_ATTEMPTS_TRY_LATER': 'Demasiados intentos. Espera unos minutos antes de volver a intentar.' };
 
   // ============================================================
   // CLIENTE REST (COMPATIBLE CON EL SDK)

@@ -11,6 +11,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   'use strict';
 
   const { logIgnored } = Telon.util;
+  const { politeFetch } = Telon.addonClient;
 
   // ============================================================
   // CONSTANTES
@@ -49,13 +50,13 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   // ============================================================
 
   async function slFetch(ruta) {
-    const respuesta = await fetch(URL_SOLOLATINO + ruta, { headers: { 'Accept-Language': 'es-419,es' }, credentials: 'include' });
+    const respuesta = await politeFetch(URL_SOLOLATINO + ruta, { headers: { 'Accept-Language': 'es-419,es' }, credentials: 'include' });
     if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
     return respuesta.text();
   }
 
   async function fetchJSON(url) {
-    return (await fetch(url)).json();
+    return (await politeFetch(url)).json();
   }
 
   async function withSlCache(clave, cargador) {
@@ -129,7 +130,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     const base = slugFromName(nombre);
     for (const articulo of ARTICULOS_SLUG) {
       try {
-        const respuesta = await fetch(URL_SOLOLATINO + rutaBase + articulo + base, { method: 'HEAD', credentials: 'include' });
+        const respuesta = await politeFetch(URL_SOLOLATINO + rutaBase + articulo + base, { method: 'HEAD', credentials: 'include' });
         if (respuesta.ok) return articulo + base;
       } catch (error) {
         logIgnored('SoloLatino: falló la prueba del slug ' + articulo + base, error);

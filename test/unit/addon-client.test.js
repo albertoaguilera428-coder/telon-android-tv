@@ -268,3 +268,37 @@ test('los episodios deducidos tienen un tope de 300', () => {
 test('si la ficha trae videos, la descripción no se usa', () => {
   assert.equal(cliente.buildEpisodeList({ id: 'x', type: 'series', description: '50 episodios', videos: [{ id: 'v1' }] }).length, 1);
 });
+
+// ============================================================
+// LÍMITES DE CONSUMO (429 Y Retry-After)
+// ============================================================
+
+test('parseRetryAfter entiende segundos y fechas HTTP, con 30 s por defecto y 10 min de tope', () => {
+  const ahora = Date.parse('2026-11-04T12:00:00Z');
+  assert.equal(cliente.parseRetryAfter('120', ahora), 120000);
+  assert.equal(cliente.parseRetryAfter('Wed, 04 Nov 2026 12:01:00 GMT', ahora), 60000);
+  assert.equal(cliente.parseRetryAfter(null, ahora), 30000);
+  assert.equal(cliente.parseRetryAfter('basura', ahora), 30000);
+  assert.equal(cliente.parseRetryAfter('99999', ahora), 600000);
+  assert.equal(cliente.parseRetryAfter('-5', ahora), 0);
+});
+
+test('después de un 429 no se vuelve a consultar ese servidor hasta que pase el Retry-After', async () => {
+  const appLimite = loadApp({ hasta: 'js/addon-client.js' });
+  const red = appLimite.Telon.addonClient;
+  let ahora = 1000000, peticiones = 0;
+  appLimite.window.Date.now = () => ahora;
+  appLimite.window.fetch = async () => {
+    peticiones++;
+    return peticiones === 1
+      ? { ok: false, status: 429, headers: { get: nombre => nombre === 'Retry-After' ? '60' : null }, json: async () => ({}) }
+      : { ok: true, status: 200, json: async () => ({ metas: [] }) };
+  };
+  await assert.rejects(red.fetchRemoteJSON('https://saturado.x/catalog/a.json'), /reintenta en 60 s/);
+  await assert.rejects(red.fetchRemoteJSON('https://saturado.x/catalog/b.json'), /pidió esperar/);
+  assert.equal(peticiones, 1, 'la segunda consulta no salió a la red');
+  assert.deepEqual(plain(await red.fetchRemoteJSON('https://otro.x/catalog/a.json')), { metas: [] }, 'otros servidores siguen funcionando');
+  ahora += 61000;
+  assert.deepEqual(plain(await red.fetchRemoteJSON('https://saturado.x/catalog/a.json')), { metas: [] });
+  appLimite.close();
+});

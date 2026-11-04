@@ -59,14 +59,61 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
   ];
 
   // ============================================================
-  // RED
+  // RED Y LÍMITES DE CONSUMO
   // ============================================================
+
+  // Si un servidor responde 429 respetamos su Retry-After (o 30 s si no lo dice) y no le volvemos a
+  // pedir nada hasta que pase. No reintentamos solos: el usuario decide con "Reintentar". Así un
+  // addon saturado no recibe una ráfaga de peticiones de cada televisor que tiene la app abierta.
+  const ESPERA_429_POR_DEFECTO_MS = 30000;
+  const ESPERA_429_MAXIMA_MS = 600000;
+  const esperaPorOrigen = Object.create(null);
+
+  function originOf(url) {
+    try {
+      return new URL(url).origin;
+    } catch {
+      // Las rutas de addons virtuales ("__x__/…") no son URLs: no tienen servidor al que limitar.
+      return '';
+    }
+  }
+
+  // Retry-After puede venir en segundos ("120") o como fecha HTTP.
+  function parseRetryAfter(valor, ahora) {
+    if (!valor) return ESPERA_429_POR_DEFECTO_MS;
+    const segundos = Number(valor);
+    const ms = Number.isFinite(segundos) ? segundos * 1000 : Date.parse(valor) - ahora;
+    if (!Number.isFinite(ms)) return ESPERA_429_POR_DEFECTO_MS;
+    return Math.min(Math.max(ms, 0), ESPERA_429_MAXIMA_MS);
+  }
+
+  function secondsToWait(origen) {
+    const hasta = esperaPorOrigen[origen];
+    if (!hasta) return 0;
+    const restante = hasta - Date.now();
+    return restante > 0 ? Math.ceil(restante / 1000) : 0;
+  }
+
+  // Todas las peticiones de la app a addons y sitios pasan por aquí.
+  async function politeFetch(url, opciones) {
+    const origen = originOf(url);
+    const espera = origen ? secondsToWait(origen) : 0;
+    if (espera > 0) throw new Error('el servidor pidió esperar; reintenta en ' + espera + ' s');
+    const respuesta = await fetch(url, opciones);
+    if (respuesta.status === 429 && origen) {
+      const ahora = Date.now();
+      const retryAfter = respuesta.headers && respuesta.headers.get ? respuesta.headers.get('Retry-After') : null;
+      esperaPorOrigen[origen] = ahora + parseRetryAfter(retryAfter, ahora);
+    }
+    return respuesta;
+  }
 
   async function fetchRemoteJSON(url, ms = ESPERA_POR_DEFECTO_MS) {
     const control = new AbortController();
     const temporizador = setTimeout(() => control.abort(), ms);
     try {
-      const respuesta = await fetch(url, { signal: control.signal });
+      const respuesta = await politeFetch(url, { signal: control.signal });
+      if (respuesta.status === 429) throw new Error('demasiadas solicitudes; reintenta en ' + secondsToWait(originOf(url)) + ' s');
       if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
       return await respuesta.json();
     } catch (error) {
@@ -220,12 +267,12 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
   }
 
   async function subBlob(url) {
-    const texto = await (await fetch(url)).text();
+    const texto = await (await politeFetch(url)).text();
     return URL.createObjectURL(new Blob([convertSrtToVtt(texto)], { type: 'text/vtt' }));
   }
 
   Telon.addonClient = {
-    ESPERA_FUENTES_MS, fetchRemoteJSON, getJSON, registerVirtualAddon, normalizeBase, buildAddonUrl,
+    ESPERA_FUENTES_MS, politeFetch, parseRetryAfter, fetchRemoteJSON, getJSON, registerVirtualAddon, normalizeBase, buildAddonUrl,
     resourceName, supportsResource, getCountryCode, getCountryLabel, sortVideos, buildEpisodeList,
     resolveStreams, resolveSubs, convertSrtToVtt, subBlob
   };

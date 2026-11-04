@@ -11,6 +11,7 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
   'use strict';
 
   const { logIgnored } = Telon.util;
+  const { politeFetch } = Telon.addonClient;
 
   // ============================================================
   // CONSTANTES
@@ -37,7 +38,7 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
   // ============================================================
 
   async function ndFetchText(ruta) {
-    const respuesta = await fetch(URL_NARTO + ruta, { headers: CABECERAS });
+    const respuesta = await politeFetch(URL_NARTO + ruta, { headers: CABECERAS });
     if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
     return respuesta.text();
   }
@@ -80,7 +81,7 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
     const drama = (await ndSections()).find(x => x._idLibro === idLibro);
     if (!drama) return null;
     // Narto solo nos da un enlace con book_id; el slug real aparece al seguir la redirección.
-    const respuesta = await fetch(drama._urlVer, { redirect: 'follow', headers: CABECERAS });
+    const respuesta = await politeFetch(drama._urlVer, { redirect: 'follow', headers: CABECERAS });
     const coincidenciaUrl = respuesta.url.match(/\/detail\/watch\/([^/?]+)/);
     // A veces no redirige y el slug viene escrito dentro del HTML.
     const coincidencia = coincidenciaUrl || (await respuesta.text()).match(/\/detail\/watch\/([a-z0-9-]+)/);
