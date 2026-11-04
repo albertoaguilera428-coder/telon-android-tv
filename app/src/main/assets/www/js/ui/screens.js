@@ -151,8 +151,6 @@ pestaña activa y arma la barra de navegación.
       <div class="set-card" data-act="setquality"><div class="itext"><b>Calidad preferida</b><span>${escapeHTML(store.get('quality', 'Auto'))}</span></div><span class="set-arrow">${ICONOS.back}</span></div>
       <div class="set-card"><div class="itext"><b>Subtítulos automáticos</b><span>Activar subtítulos si están disponibles</span></div><button class="switch" role="switch" aria-checked="${store.get('autoSubs', true)}" data-act="togglesubs"><i></i></button></div>
       <div class="set-card"><div class="itext"><b>Subtítulos en dramas cortos</b><span>Activar subtítulos en series de Narto Drama</span></div><button class="switch" role="switch" aria-checked="${store.get('nartoSubs', false)}" data-act="togglenartosubs"><i></i></button></div></div>
-    <div class="set-section"><label>Interfaz</label>
-      </div>
     <div class="set-section"><label>Datos</label>
       <div class="set-card" data-act="clearhist"><div class="itext"><b>Borrar historial</b><span>${Object.keys(estado.historial).length} elementos</span></div></div>
       <div class="set-card" data-act="clearlib"><div class="itext"><b>Vaciar mi lista</b><span>${estado.biblioteca.length} elementos guardados</span></div></div>
@@ -168,10 +166,27 @@ pestaña activa y arma la barra de navegación.
 
   const PANTALLAS = { addons: addonsHTML, settings: settingsHTML, lib: libHTML };
 
-  // En TV no hay dedo que toque: si nadie tiene el foco, el control remoto no sirve.
-  function focusFirstElementForTv() {
+  // render() reemplaza el HTML y el botón enfocado desaparece. Recordamos qué acción tenía para
+  // devolverle el foco al botón equivalente: si no, cada clic te mandaba a otro lado de la pantalla.
+  function describeFocusedButton() {
+    const enfocado = document.activeElement;
+    if (!enfocado || !enfocado.dataset || !enfocado.dataset.act) return null;
+    return { accion: enfocado.dataset.act, clave: enfocado.dataset.k };
+  }
+
+  function findEquivalentButton(descripcion) {
+    if (!descripcion) return null;
+    return [...document.querySelectorAll('#screen [data-act], #nav [data-act]')]
+      .find(b => b.dataset.act === descripcion.accion && b.dataset.k === descripcion.clave) || null;
+  }
+
+  // En TV no hay dedo que toque: si nadie tiene el foco, el control remoto no sirve. Sin botón
+  // equivalente, la prioridad es la pestaña activa, luego la pantalla. Se consulta por separado
+  // porque una lista de selectores devuelve el primero en orden del documento, no por prioridad.
+  function restoreTvFocus(descripcion) {
     setTimeout(() => {
-      const objetivo = document.querySelector('#nav button.on,#screen button,#nav button');
+      const objetivo = findEquivalentButton(descripcion) || document.querySelector('#nav button.on')
+        || document.querySelector('#screen button') || document.querySelector('#nav button');
       if (objetivo) { objetivo.focus(); objetivo.scrollIntoView({ block: 'nearest' }); }
     }, ESPERA_FOCO_TV_MS);
   }
@@ -190,6 +205,7 @@ pestaña activa y arma la barra de navegación.
       return;
     }
     // Al volver a pintar conservamos el scroll, si no cada toque te mandaría al inicio de la lista.
+    const focoPrevio = describeFocusedButton();
     const scrollActual = document.querySelector('#screen .scroll');
     const scrollPrevio = scrollActual ? scrollActual.scrollTop : 0;
     const pantalla = $('#screen');
@@ -201,8 +217,8 @@ pestaña activa y arma la barra de navegación.
     }
     const scrollNuevo = document.querySelector('#screen .scroll');
     if (scrollNuevo && scrollPrevio) scrollNuevo.scrollTop = scrollPrevio;
-    if (plataforma.esTv) focusFirstElementForTv();
     $('#nav').innerHTML = navigationHTML();
+    if (plataforma.esTv) restoreTvFocus(focoPrevio);
   }
 
   function setTab(pestana) {

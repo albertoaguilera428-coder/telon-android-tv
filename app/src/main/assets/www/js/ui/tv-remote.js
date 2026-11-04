@@ -97,8 +97,12 @@ video; en el resto de la app mueven el foco al elemento más cercano en esa dire
 
   const playOrIgnore = v => v.play().catch(() => {});
   const seekBack = v => { v.currentTime = Math.max(0, v.currentTime - SALTO_SEGUNDOS); };
-  // Adelantar sí se topa con la duración; retroceder no la necesita (en vivo puede no existir).
-  const seekForward = v => { v.currentTime = Math.min(v.duration || 0, v.currentTime + SALTO_SEGUNDOS); };
+  // Adelantar se topa con la duración si la conocemos. En vivo (sin duración) solo avanzamos:
+  // antes se tomaba la duración como 0 y el video saltaba al inicio.
+  const seekForward = v => {
+    const destino = v.currentTime + SALTO_SEGUNDOS;
+    v.currentTime = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(v.duration, destino) : destino;
+  };
   const goToEpisode = (reproductor, salto) => {
     const destino = reproductor.indice + salto;
     if (destino >= 0 && destino < reproductor.episodios.length) loadVideo(destino);

@@ -53,13 +53,24 @@ test('propiedad: el candidato elegido siempre está en la dirección pedida', ()
 // TECLAS CON EL REPRODUCTOR ABIERTO
 // ============================================================
 
-test('retroceder 10 s funciona aunque el video no informe duración (transmisión en vivo)', () => {
+test('sin duración (transmisión en vivo) retroceder y adelantar mueven 10 s sin saltar al inicio', () => {
   const video = { currentTime: 95, duration: NaN, pause() {}, play: () => Promise.resolve() };
   app.Telon.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
   tvRemote.handleTvKey(tvRemote.TECLA.RETROCEDER);
   assert.equal(video.currentTime, 85);
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
-  assert.equal(video.currentTime, 0); // Sin duración no hay a dónde adelantar: así funcionaba antes.
+  assert.equal(video.currentTime, 95);
+  video.duration = Infinity;
+  tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
+  assert.equal(video.currentTime, 105);
+  app.Telon.state.estado.reproductor = null;
+});
+
+test('con duración conocida, adelantar no pasa del final', () => {
+  const video = { currentTime: 95, duration: 100, pause() {}, play: () => Promise.resolve() };
+  app.Telon.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
+  tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
+  assert.equal(video.currentTime, 100);
   app.Telon.state.estado.reproductor = null;
 });
 
@@ -157,5 +168,50 @@ test('OK sobre un elemento enfocado lo activa', () => {
   boton.focus();
   tv.Telon.ui.tvRemote.handleTvKey(tv.Telon.ui.tvRemote.TECLA.ENTER);
   assert.equal(activado, true);
+  tv.close();
+});
+
+// ============================================================
+// FOCO DESPUÉS DE VOLVER A PINTAR (TV)
+// ============================================================
+
+test('en TV, al volver a pintar, el foco vuelve al mismo botón y no salta a otro lado', async () => {
+  const tv = loadApp({ modo: 'android-tv', almacen: { profiles: [{ id: 'p', name: 'Ana', color: '#000' }], activeProfile: 'p' } });
+  await tv.settle(2);
+  tv.act('tab:settings');
+  await tv.settle();
+  const interruptor = tv.document.querySelector('[data-act="togglesubs"]');
+  interruptor.focus();
+  interruptor.click();
+  await tv.settle();
+  assert.equal(tv.document.activeElement.dataset.act, 'togglesubs');
+  assert.notEqual(tv.document.activeElement, interruptor, 'es el botón nuevo después de pintar');
+  tv.close();
+});
+
+test('en TV, sin botón equivalente, el foco va a la pestaña activa', async () => {
+  const tv = loadApp({ modo: 'android-tv', almacen: { profiles: [{ id: 'p', name: 'Ana', color: '#000' }], activeProfile: 'p' } });
+  await tv.settle(2);
+  // Con el control: el foco está en "Biblioteca" y se presiona OK.
+  tv.document.querySelector('[data-act="tab:lib"]').focus();
+  tv.document.activeElement.click();
+  await tv.settle();
+  assert.equal(tv.document.activeElement.dataset.act, 'tab:lib');
+  // Si el botón enfocado no existe en la pantalla nueva, el foco cae en la pestaña activa.
+  tv.document.activeElement.blur();
+  tv.act('tab:settings');
+  await tv.settle();
+  assert.equal(tv.document.activeElement.dataset.act, 'tab:settings');
+  tv.close();
+});
+
+test('Ajustes ya no muestra la sección "Interfaz" vacía', async () => {
+  const tv = loadApp({ modo: 'android-phone', almacen: { profiles: [{ id: 'p', name: 'Ana', color: '#000' }], activeProfile: 'p' } });
+  await tv.settle(2);
+  tv.act('tab:settings');
+  await tv.settle();
+  const secciones = [...tv.document.querySelectorAll('.set-section label')].map(l => l.textContent);
+  assert.ok(!secciones.includes('Interfaz'));
+  assert.ok(secciones.includes('Reproducción'));
   tv.close();
 });

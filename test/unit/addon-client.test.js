@@ -217,3 +217,54 @@ test('resolveSubs también usa los subtítulos que vienen dentro de las fuentes'
   assert.equal(sub.url, 'es.vtt');
   assert.equal(await cliente.resolveSubs([], 'series', 'tt1', []), null);
 });
+
+// ============================================================
+// PAÍSES: NOMBRES QUE ANTES CAÍAN EN OTRO PAÍS
+// ============================================================
+
+test('getCountryCode reconoce nombres que antes se confundían con otro país', () => {
+  const casos = [['Great Britain', 'UK'], ['United Kingdom', 'UK'], ['Reino Unido', 'UK'], ['Indonesia', 'ID'], ['India', 'IN'],
+    ['Estonia', 'ES'], ['Ukraine', 'UA'], ['Ucrania', 'UA'], ['Alemania', 'DE'], ['Germany', 'DE'], ['Austria', 'AT'], ['Australia', 'AU'],
+    ['Filipinas', 'PH'], ['Turquía', 'TR'], ['South Korea', 'KR'], ['EE.UU.', 'US'], ['Spain', 'ES'], ['Thailand', 'TH']];
+  for (const [entrada, esperado] of casos) assert.equal(cliente.getCountryCode({ country: entrada }), esperado, entrada);
+});
+
+test('getCountryCode respeta los códigos de dos letras que ya manda el addon', () => {
+  assert.equal(cliente.getCountryCode({ country: 'de' }), 'DE');
+  assert.equal(cliente.getCountryCode({ country: 'GB' }), 'UK');
+  assert.equal(cliente.getCountryCode({ country: 'IN' }), 'IN');
+});
+
+test('propiedad: un código de dos letras siempre se devuelve tal cual (salvo GB → UK)', () => {
+  fc.assert(fc.property(fc.stringMatching(/^[A-Z]{2}$/), codigo => {
+    assert.equal(cliente.getCountryCode({ country: codigo }), codigo === 'GB' ? 'UK' : codigo);
+  }));
+});
+
+test('getCountryLabel nombra en español los países nuevos', () => {
+  assert.equal(cliente.getCountryLabel('DE'), 'Alemania');
+  assert.equal(cliente.getCountryLabel('UA'), 'Ucrania');
+});
+
+// ============================================================
+// EPISODIOS DEDUCIDOS DE LA DESCRIPCIÓN
+// ============================================================
+
+test('una serie sin lista de videos pero con "N episodios" en la descripción arma N episodios', () => {
+  const episodios = plain(cliente.buildEpisodeList({ id: 'tt7', type: 'series', name: 'X', description: 'Drama de 12 episodios' }));
+  assert.equal(episodios.length, 12);
+  assert.deepEqual(episodios[0], { id: 'tt7:1:1', title: 'Episodio 1', season: 1, episode: 1 });
+  assert.equal(episodios[11].id, 'tt7:1:12');
+});
+
+test('una película con "episodios" en la sinopsis sigue siendo un solo ítem', () => {
+  assert.deepEqual(plain(cliente.buildEpisodeList({ id: 'tt8', type: 'movie', name: 'Peli', description: 'Basada en 3 episodios reales' })), [{ id: 'tt8', title: 'Peli' }]);
+});
+
+test('los episodios deducidos tienen un tope de 300', () => {
+  assert.equal(cliente.buildEpisodeList({ id: 'x', type: 'series', description: '9999 episodios' }).length, 300);
+});
+
+test('si la ficha trae videos, la descripción no se usa', () => {
+  assert.equal(cliente.buildEpisodeList({ id: 'x', type: 'series', description: '50 episodios', videos: [{ id: 'v1' }] }).length, 1);
+});

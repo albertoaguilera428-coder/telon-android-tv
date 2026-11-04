@@ -21,19 +21,41 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
   // Las fuentes tardan más que el resto: varios addons resuelven el enlace en el momento.
   const ESPERA_FUENTES_MS = 60000;
   const ETIQUETAS_PAIS = { CN: 'China', US: 'EEUU', KR: 'Corea', JP: 'Japón', ES: 'España', MX: 'México',
-    CO: 'Colombia', AR: 'Argentina', TH: 'Tailandia', TW: 'Taiwán', IN: 'India', UK: 'UK', GB: 'UK' };
-  // El primer patrón que coincide gana; el orden importa (por ejemplo "IN" antes que el recorte final).
+    CO: 'Colombia', AR: 'Argentina', TH: 'Tailandia', TW: 'Taiwán', IN: 'India', UK: 'UK', GB: 'UK',
+    DE: 'Alemania', FR: 'Francia', IT: 'Italia', BR: 'Brasil', CA: 'Canadá', AU: 'Australia', AT: 'Austria',
+    RU: 'Rusia', ID: 'Indonesia', PH: 'Filipinas', TR: 'Turquía', UA: 'Ucrania', CL: 'Chile', PE: 'Perú', HK: 'Hong Kong' };
+  // Si el addon ya manda un código de dos letras lo respetamos; GB se muestra como UK, igual que siempre.
+  const CODIGOS_EQUIVALENTES = { GB: 'UK' };
+  // Nombres en inglés y español. Cada patrón exige el nombre desde el inicio y, en los cortos,
+  // la palabra completa: así "Indonesia" no cae en India ni "Estonia" en España.
   const ALIAS_PAIS = [
-    [/^(CN|CHINA|CHINO|CHINESE)/, 'CN'],
-    [/^(US|USA|EEUU|UNITED STATES|ESTADOS UNIDOS)/, 'US'],
-    [/^(KR|KOREA|COREA|KOREAN)/, 'KR'],
-    [/^(JP|JAP[AÓO]N|JAPANESE)/, 'JP'],
-    [/^(TH|THAI|TAILAND)/, 'TH'],
-    [/^(TW|TAIW[AÁ]N)/, 'TW'],
-    [/^(ES|ESPA[ÑN]A|SPANISH)/, 'ES'],
-    [/^(MX|M[EÉ]XICO|MEXICAN)/, 'MX'],
-    [/^(IN|INDIA)/, 'IN'],
-    [/^(GB|UK|BRIT)/, 'UK']
+    [/^(CHINA|CHINO|CHINESE|MAINLAND CHINA)\b/, 'CN'],
+    [/^(USA|EE\.? ?UU\.?|UNITED STATES|ESTADOS UNIDOS|AMERICAN)\b/, 'US'],
+    [/^(KOREA|COREA|KOREAN|SOUTH KOREA)\b/, 'KR'],
+    [/^(JAP[AÓO]N|JAPANESE)\b/, 'JP'],
+    [/^(THAI|THAILAND|TAILANDIA)\b/, 'TH'],
+    [/^TAIW[AÁ]N\b/, 'TW'],
+    [/^(ESPA[ÑN]A|SPAIN|SPANISH)\b/, 'ES'],
+    [/^(M[EÉ]XICO|MEXICAN)\b/, 'MX'],
+    [/^(INDIA|INDIAN)\b/, 'IN'],
+    [/^(UNITED KINGDOM|GREAT BRITAIN|REINO UNIDO|BRIT|ENGLAND|INGLATERRA)/, 'UK'],
+    [/^(GERMANY|GERMAN|ALEMANIA)\b/, 'DE'],
+    [/^(FRANCE|FRENCH|FRANCIA)\b/, 'FR'],
+    [/^(ITALY|ITALIAN|ITALIA)\b/, 'IT'],
+    [/^BRA[SZ]IL\b/, 'BR'],
+    [/^CANAD[AÁ]\b/, 'CA'],
+    [/^AUSTRALIA\b/, 'AU'],
+    [/^AUSTRIA\b/, 'AT'],
+    [/^(RUSSIA|RUSIA|RUSSIAN)\b/, 'RU'],
+    [/^INDONESIA\b/, 'ID'],
+    [/^(PHILIPPINES|FILIPINAS)\b/, 'PH'],
+    [/^(TURKEY|TURQU[IÍ]A|T[UÜ]RKIYE)\b/, 'TR'],
+    [/^(UKRAINE|UCRANIA)\b/, 'UA'],
+    [/^(COLOMBIA)\b/, 'CO'],
+    [/^(ARGENTINA)\b/, 'AR'],
+    [/^CHILE\b/, 'CL'],
+    [/^PER[UÚ]\b/, 'PE'],
+    [/^HONG KONG\b/, 'HK']
   ];
 
   // ============================================================
@@ -105,7 +127,9 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
     if (Array.isArray(pais)) pais = pais[0];
     if (!pais) return '';
     const mayus = String(pais).trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(mayus)) return CODIGOS_EQUIVALENTES[mayus] || mayus;
     const alias = ALIAS_PAIS.find(([patron]) => patron.test(mayus));
+    // Último recurso para países que no conocemos: las dos primeras letras sirven para agrupar.
     return alias ? alias[1] : mayus.slice(0, 2);
   }
 
@@ -119,10 +143,28 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
       || (a.i - b.i))
     .map(x => x.video);
 
-  // Lista de episodios lista para reproducir: películas y fichas sin videos quedan como un solo ítem.
+  // Algunos addons no mandan la lista de videos pero sí dicen "24 episodios" en la descripción.
+  // Solo para series: en una película esa frase suele ser parte de la sinopsis.
+  const MAXIMO_EPISODIOS_INFERIDOS = 300;
+
+  function inferEpisodesFromDescription(ficha) {
+    if (ficha.type !== 'series') return [];
+    const coincidencia = (ficha.description || '').match(/(\d+)\s*[Ee]pisodios?/);
+    if (!coincidencia) return [];
+    const cantidad = Math.min(+coincidencia[1], MAXIMO_EPISODIOS_INFERIDOS);
+    const episodios = [];
+    // Mismo formato de ID que usa Stremio para series (id:temporada:episodio).
+    for (let e = 1; e <= cantidad; e++) episodios.push({ id: `${ficha.id}:1:${e}`, title: `Episodio ${e}`, season: 1, episode: e });
+    return episodios;
+  }
+
+  // Lista de episodios lista para reproducir. Si el addon no trae videos intentamos deducirlos de
+  // la descripción; si tampoco se puede (películas, por ejemplo), queda un solo ítem.
   function buildEpisodeList(ficha) {
     const episodios = Array.isArray(ficha.videos) ? sortVideos(ficha.videos.filter(v => v && v.id)) : [];
-    return episodios.length ? episodios : [{ id: ficha.id, title: ficha.name }];
+    if (episodios.length) return episodios;
+    const inferidos = inferEpisodesFromDescription(ficha);
+    return inferidos.length ? inferidos : [{ id: ficha.id, title: ficha.name }];
   }
 
   // ============================================================
