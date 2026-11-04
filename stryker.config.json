@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comentario": "Mutación solo en la lógica de mayor riesgo (protocolo de addons y foco del control remoto): es lenta y ahí es donde un error pasa desapercibido. Se corre a demanda o en el pipeline nocturno, no en cada push.",
+  "testRunner": "command",
+  "commandRunner": { "command": "node --test test/unit/addon-client.test.js test/unit/interfaz.test.js" },
+  "mutate": ["app/src/main/assets/www/js/addon-client.js", "app/src/main/assets/www/js/ui/tv-remote.js"],
+  "coverageAnalysis": "off",
+  "concurrency": 4,
+  "reporters": ["clear-text", "progress", "html"],
+  "htmlReporter": { "fileName": "build/mutacion/index.html" },
+  "thresholds": { "high": 80, "low": 60, "break": 50 },
+  "tempDirName": ".stryker-tmp"
+}

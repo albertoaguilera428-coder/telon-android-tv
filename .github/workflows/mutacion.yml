@@ -1,0 +1,35 @@
+# ============================================================
+# Telón - Pruebas de mutación (semanal o a demanda)
+# Para: Telón TV
+# De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+#
+# Stryker modifica la lógica de mayor riesgo y verifica que las pruebas lo noten. Tarda
+# varios minutos, por eso no corre en cada push. Falla si el puntaje baja del umbral
+# "break" de stryker.config.json.
+# ============================================================
+name: Mutación
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run mutation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-mutacion
+          path: build/mutacion/
