@@ -20,26 +20,6 @@ Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer
   const puenteAndroid = window.TelonBridge;
   const apiTizen = window.tizen;
 
-  function detectPlatformName() {
-    if (puenteAndroid) return 'android';
-    if (apiTizen) return 'tizen';
-    return 'browser';
-  }
-
-  // MainActivity responde isTv() según el modo del sistema (UiModeManager). Si por algún
-  // motivo no responde, asumimos TV porque así se comportaba la app antes de soportar celulares.
-  function readAndroidTvFlag() {
-    try {
-      return typeof puenteAndroid.isTv === 'function' ? puenteAndroid.isTv() === true : true;
-    } catch (error) {
-      console.warn('[Telón] No se pudo leer isTv() del puente Android', error);
-      return true;
-    }
-  }
-
-  const nombre = detectPlatformName();
-  const esTv = nombre === 'tizen' || (nombre === 'android' && readAndroidTvFlag());
-
   // ============================================================
   // VIEWPORT
   // ============================================================
@@ -49,7 +29,7 @@ Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer
   const VIEWPORT_TV = 'width=1920';
   const VIEWPORT_TACTIL = 'width=device-width, initial-scale=1, viewport-fit=cover';
 
-  function applyViewport() {
+  function applyViewport(esTv) {
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) meta.setAttribute('content', esTv ? VIEWPORT_TV : VIEWPORT_TACTIL);
   }
@@ -86,21 +66,12 @@ Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer
       : null;
   }
 
-  function exitApp() {
-    if (nombre !== 'tizen') return;
-    try {
-      apiTizen.application.getCurrentApplication().exit();
-    } catch (error) {
-      console.warn('[Telón] Tizen no permitió cerrar la app', error);
-    }
-  }
-
-  function handleTizenKeydown(evento) {
+  function handleTizenKeydown(evento, salir) {
     if (evento.keyCode === TECLA_ATRAS_TIZEN) {
       evento.preventDefault();
       // Igual que en Android: primero la app cierra lo que tenga abierto; si no queda nada, salimos.
       const atendido = typeof window.telonBack === 'function' && window.telonBack();
-      if (!atendido) exitApp();
+      if (!atendido) salir();
       return;
     }
     const codigoAndroid = translateTizenKey(evento.keyCode);
@@ -109,60 +80,112 @@ Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer
     window._tvKey(codigoAndroid);
   }
 
-  function installTizenRemote() {
+  function installTizenRemote(api, salir) {
     TECLAS_MULTIMEDIA_TIZEN.forEach(tecla => {
       try {
-        apiTizen.tvinputdevice.registerKey(tecla);
+        api.tvinputdevice.registerKey(tecla);
       } catch (error) {
         // Algunos modelos no tienen todas las teclas; la app sigue funcionando sin esa en particular.
         console.warn('[Telón] Tizen no registró la tecla ' + tecla, error);
       }
     });
-    document.addEventListener('keydown', handleTizenKeydown);
+    document.addEventListener('keydown', evento => handleTizenKeydown(evento, salir));
   }
 
   // ============================================================
-  // ACCIONES QUE DEPENDEN DEL SISTEMA
+  // ADAPTADORES (UNO POR SISTEMA, MISMO CONTRATO)
   // ============================================================
 
-  function callAndroid(metodo, args) {
-    if (nombre !== 'android') return false;
+  // Contrato que usa el resto de la app:
+  //   nombre, esTv, admiteEmbed, admiteActualizacion
+  //   setOrientation(modo), openEmbed(url, referente) → bool, closeEmbed(),
+  //   downloadUpdate(url) → bool, exitApp(), start()
+  // Cada sistema implementa lo suyo; quien lo usa no pregunta en cuál está (polimorfismo).
+
+  // MainActivity responde isTv() según el modo del sistema (UiModeManager). Si por algún
+  // motivo no responde, asumimos TV porque así se comportaba la app antes de soportar celulares.
+  function readAndroidTvFlag(puente) {
     try {
-      puenteAndroid[metodo].apply(puenteAndroid, args);
-      return true;
+      return typeof puente.isTv === 'function' ? puente.isTv() === true : true;
     } catch (error) {
-      console.warn('[Telón] Falló TelonBridge.' + metodo, error);
-      return false;
+      console.warn('[Telón] No se pudo leer isTv() del puente Android', error);
+      return true;
     }
   }
 
-  // En celular el reproductor gira la pantalla según el formato del video; en TV no aplica.
-  function setOrientation(modo) {
-    callAndroid('setOrientation', [modo]);
+  function createAndroidAdapter(puente) {
+    const call = (metodo, args) => {
+      try {
+        puente[metodo].apply(puente, args);
+        return true;
+      } catch (error) {
+        console.warn('[Telón] Falló TelonBridge.' + metodo, error);
+        return false;
+      }
+    };
+    return {
+      nombre: 'android',
+      esTv: readAndroidTvFlag(puente),
+      // Solo MainActivity puede atrapar el m3u8 de un reproductor embebido (shouldInterceptRequest).
+      admiteEmbed: true,
+      // Las actualizaciones se publican como APK.
+      admiteActualizacion: true,
+      // En celular el reproductor gira la pantalla según el formato del video; en TV lo ignora MainActivity.
+      setOrientation: modo => { call('setOrientation', [modo]); },
+      openEmbed: (urlEmbed, referente) => call('openEmbed', [urlEmbed, referente]),
+      closeEmbed: () => { call('closeEmbed', []); },
+      downloadUpdate: url => call('downloadAndInstall', [url]),
+      // En Android la salida la maneja MainActivity cuando telonBack() responde false.
+      exitApp: () => {},
+      start: () => {}
+    };
   }
 
-  // Devuelve false si la plataforma no puede abrir el embed, para que el reproductor avise.
-  function openEmbed(urlEmbed, referente) {
-    return callAndroid('openEmbed', [urlEmbed, referente]);
+  function createTizenAdapter(api) {
+    const exitApp = () => {
+      try {
+        api.application.getCurrentApplication().exit();
+      } catch (error) {
+        console.warn('[Telón] Tizen no permitió cerrar la app', error);
+      }
+    };
+    return {
+      nombre: 'tizen',
+      esTv: true,
+      admiteEmbed: false,
+      // En Samsung el .wgt se reinstala a mano.
+      admiteActualizacion: false,
+      setOrientation: () => {},
+      openEmbed: () => false,
+      closeEmbed: () => {},
+      downloadUpdate: () => false,
+      exitApp,
+      start: () => installTizenRemote(api, exitApp)
+    };
   }
 
-  function closeEmbed() {
-    callAndroid('closeEmbed', []);
+  // Navegador de escritorio o celular, mientras desarrollamos: interfaz táctil, sin puente.
+  function createBrowserAdapter() {
+    return {
+      nombre: 'browser', esTv: false, admiteEmbed: false, admiteActualizacion: false,
+      setOrientation: () => {}, openEmbed: () => false, closeEmbed: () => {}, downloadUpdate: () => false, exitApp: () => {}, start: () => {}
+    };
   }
 
-  function downloadUpdate(url) {
-    return callAndroid('downloadAndInstall', [url]);
+  function createPlatformAdapter() {
+    if (puenteAndroid) return createAndroidAdapter(puenteAndroid);
+    if (apiTizen) return createTizenAdapter(apiTizen);
+    return createBrowserAdapter();
   }
 
   // ============================================================
   // ARRANQUE
   // ============================================================
 
-  applyViewport();
-  if (nombre === 'tizen') installTizenRemote();
+  const plataforma = createPlatformAdapter();
+  applyViewport(plataforma.esTv);
+  plataforma.start();
 
   Telon.infra = Telon.infra || {};
-  Telon.infra.platform = { nombre, esTv, // Solo MainActivity puede atrapar el m3u8 de un reproductor embebido (shouldInterceptRequest).
-    admiteEmbed: nombre === 'android', // Las actualizaciones se publican como APK; en Samsung se reinstala el .wgt a mano.
-    admiteActualizacion: nombre === 'android', setOrientation, openEmbed, closeEmbed, downloadUpdate, translateTizenKey };
+  Telon.infra.platform = Object.freeze({ ...plataforma, translateTizenKey });
 })(window.Telon = window.Telon || {});

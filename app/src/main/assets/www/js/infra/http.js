@@ -10,6 +10,8 @@ a la vez y no esperar para siempre a un servidor que no contesta.
 (function (Telon) {
   'use strict';
 
+  const { HttpError, TimeoutError, RateLimitError, QueueFullError, NetworkError, InvalidDataError, TelonError } = Telon.infra.errors;
+
   const ESPERA_POR_DEFECTO_MS = 15000;
 
   // ============================================================
@@ -66,7 +68,7 @@ a la vez y no esperar para siempre a un servidor que no contesta.
       activas++;
       return Promise.resolve();
     }
-    if (enEspera.length >= MAXIMO_EN_ESPERA) return Promise.reject(new Error('demasiadas peticiones en espera'));
+    if (enEspera.length >= MAXIMO_EN_ESPERA) return Promise.reject(new QueueFullError());
     return new Promise(resolver => enEspera.push(resolver));
   }
 
@@ -95,7 +97,7 @@ a la vez y no esperar para siempre a un servidor que no contesta.
   async function politeFetch(url, opciones = {}, ms = ESPERA_POR_DEFECTO_MS) {
     const origen = originOf(url);
     const espera = origen ? secondsToWait(origen) : 0;
-    if (espera > 0) throw new Error('el servidor pidió esperar; reintenta en ' + espera + ' s');
+    if (espera > 0) throw new RateLimitError(espera);
     await acquireSlot();
     const control = opciones.signal ? null : new AbortController();
     const temporizador = control ? setTimeout(() => control.abort(), ms) : null;
@@ -104,7 +106,9 @@ a la vez y no esperar para siempre a un servidor que no contesta.
       recordRateLimit(respuesta, origen);
       return respuesta;
     } catch (error) {
-      if (control && control.signal.aborted) throw new Error('tiempo de espera agotado', { cause: error });
+      if (control && control.signal.aborted) throw new TimeoutError({ cause: error });
+      // fetch solo se rechaza cuando no logra llegar al servidor (sin red, DNS, CORS).
+      if (error && (error.name === 'TypeError' || error.name === 'AbortError')) throw new NetworkError({ cause: error });
       throw error;
     } finally {
       clearTimeout(temporizador);
@@ -115,11 +119,15 @@ a la vez y no esperar para siempre a un servidor que no contesta.
   async function fetchRemoteJSON(url, ms = ESPERA_POR_DEFECTO_MS) {
     try {
       const respuesta = await politeFetch(url, {}, ms);
-      if (respuesta.status === 429) throw new Error('demasiadas solicitudes; reintenta en ' + secondsToWait(originOf(url)) + ' s');
-      if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+      if (respuesta.status === 429) throw new RateLimitError(secondsToWait(originOf(url)));
+      if (!respuesta.ok) throw new HttpError(respuesta.status);
       return await respuesta.json();
     } catch (error) {
-      throw new Error(error.message, { cause: error });
+      if (error instanceof TelonError) throw error;
+      // JSON mal formado: el servidor contestó, pero no lo que esperábamos.
+      if (error && error.name === 'SyntaxError') throw new InvalidDataError('la respuesta del servidor no es válida', { cause: error });
+      // Lo demás (fetch rechazado: sin red, DNS, CORS) es un problema para llegar al servidor.
+      throw new NetworkError({ cause: error });
     }
   }
 

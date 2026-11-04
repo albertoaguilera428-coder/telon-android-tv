@@ -104,8 +104,8 @@ video; en el resto de la app mueven el foco al elemento más cercano en esa dire
     v.currentTime = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(v.duration, destino) : destino;
   };
   const goToEpisode = (reproductor, salto) => {
-    const destino = reproductor.indice + salto;
-    if (destino >= 0 && destino < reproductor.episodios.length) loadVideo(destino);
+    const destino = reproductor.sesion.indice + salto;
+    if (destino >= 0 && destino < reproductor.sesion.episodios.length) loadVideo(destino);
   };
   const doNothing = () => {};
 

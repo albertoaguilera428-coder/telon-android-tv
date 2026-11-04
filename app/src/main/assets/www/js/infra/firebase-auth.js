@@ -12,6 +12,7 @@ tocar los casos de uso ni las pantallas.
   'use strict';
 
   const { politeFetch } = Telon.infra.http;
+  const { AuthError } = Telon.infra.errors;
 
   // ============================================================
   // CONSTANTES
@@ -29,8 +30,8 @@ tocar los casos de uso ni las pantallas.
   async function postFirebase(operacion, cuerpo) {
     const respuesta = await politeFetch(buildFirebaseUrl(operacion), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
     const datos = await respuesta.json();
-    // Mismo formato de error que el SDK ({ code }) para reutilizar las tablas de mensajes.
-    if (datos.error) throw { code: datos.error.message };
+    // Como el SDK, el error trae el código de Firebase en `code` para elegir el mensaje.
+    if (datos.error) throw new AuthError(datos.error.message);
     return datos;
   }
 

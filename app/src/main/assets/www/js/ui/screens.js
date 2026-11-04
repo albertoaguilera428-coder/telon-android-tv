@@ -11,11 +11,12 @@ pestaña activa y arma la barra de navegación.
 
   const { $, escapeHTML, colorFor, toInitials, safeUrl, safeColor } = Telon.ui.dom;
   const plataforma = Telon.infra.platform;
+  const { userMessageFor } = Telon.infra.errors;
   const { listResourceNames } = Telon.domain.catalog;
   const { progressPercent, sortByRecent } = Telon.domain.progress;
   const { estado, perfiles, preferencias, sesion } = Telon.app.state;
   const { installAddon } = Telon.app.catalogService;
-  const { toast, registerCard, posterHTML, pfAvatarHTML } = Telon.ui.components;
+  const { toast, registerCard, clearCards, posterHTML, pfAvatarHTML } = Telon.ui.components;
   const { homeHTML, homeBody, loadHome } = Telon.ui.home;
   const ICONOS = Telon.ui.ICONOS;
 
@@ -82,7 +83,7 @@ pestaña activa y arma la barra de navegación.
       estado.filasBusqueda = null;
       if (manifest) toast('Instalado: ' + manifest.name);
     } catch (error) {
-      estado.errorInstalar = 'No se pudo instalar: ' + error.message + '. Revisa el enlace y que el servidor esté encendido.';
+      estado.errorInstalar = 'No se pudo instalar: ' + userMessageFor(error) + '. Revisa el enlace y que el servidor esté encendido.';
     }
     estado.instalando = false;
     render();
@@ -201,6 +202,8 @@ pestaña activa y arma la barra de navegación.
     }
     // Al volver a pintar conservamos el scroll, si no cada toque te mandaría al inicio de la lista.
     const focoPrevio = describeFocusedButton();
+    // La pantalla se pinta de nuevo entera: las tarjetas que se registren son las únicas a la vista.
+    clearCards();
     const scrollActual = document.querySelector('#screen .scroll');
     const scrollPrevio = scrollActual ? scrollActual.scrollTop : 0;
     const pantalla = $('#screen');

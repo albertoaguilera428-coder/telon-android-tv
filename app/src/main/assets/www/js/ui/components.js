@@ -31,16 +31,20 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
   // TARJETAS Y PÓSTERS
   // ============================================================
 
-  // Los botones solo llevan la clave en data-k; aquí queda el objeto completo para abrirlo al hacer clic.
-  const indiceTarjetas = {};
+  // Los botones solo llevan la clave en data-k; aquí queda el objeto completo para abrirlo al hacer
+  // clic. Se vacía en cada pintado completo: antes guardaba todas las tarjetas vistas desde que se
+  // abrió la app y solo crecía.
+  const indiceTarjetas = new Map();
 
   function registerCard(referencia) {
     const clave = refKey(referencia);
-    indiceTarjetas[clave] = referencia;
+    indiceTarjetas.set(clave, referencia);
     return clave;
   }
 
-  const findCard = clave => indiceTarjetas[clave];
+  const findCard = clave => indiceTarjetas.get(clave);
+  const clearCards = () => indiceTarjetas.clear();
+  const cardCount = () => indiceTarjetas.size;
 
   const spinnerHTML = etiqueta => `<div class="spin" role="progressbar" aria-label="${etiqueta}"></div>`;
 
@@ -83,5 +87,5 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
   }
 
   Telon.ui = Telon.ui || {};
-  Telon.ui.components = { toast, registerCard, findCard, spinnerHTML, posterHTML, cardHTML, emptyAddonsHTML, pfAvatarHTML, miniAvatarHTML };
+  Telon.ui.components = { toast, registerCard, findCard, clearCards, cardCount, spinnerHTML, posterHTML, cardHTML, emptyAddonsHTML, pfAvatarHTML, miniAvatarHTML };
 })(window.Telon = window.Telon || {});

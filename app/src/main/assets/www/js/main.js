@@ -10,6 +10,8 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   'use strict';
 
   const plataforma = Telon.infra.platform;
+  const { logIgnored } = Telon.infra.log;
+  const { userMessageFor } = Telon.infra.errors;
   const { toggleFilterValue, FILTROS_VACIOS } = Telon.domain.catalog;
   const { estado, perfiles, preferencias, clearHistory, clearLibrary, resetAllData } = Telon.app.state;
   const catalogo = Telon.app.catalogService;
@@ -65,7 +67,8 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
       try {
         saveProfileImage(perfil, await Telon.ui.avatarImage.resizeToAvatar(archivo));
       } catch (error) {
-        toast('No se pudo usar esa foto: ' + error.message);
+        logIgnored('No se pudo procesar la foto elegida', error);
+        toast('No se pudo usar esa foto: ' + userMessageFor(error));
       }
     };
     selectorArchivo.click();
@@ -151,9 +154,9 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   const ACCIONES = {
     tab: argumento => { if ($('#detail') && !$('#detail').hidden) closeDetail(); setTab(argumento); },
-    filter: argumento => { estado.filtros.pais = argumento; homeBody(); },
-    ftype: argumento => { estado.filtros.tipo = toggleFilterValue(estado.filtros.tipo, argumento); homeBody(); },
-    fgenre: argumento => { estado.filtros.genero = toggleFilterValue(estado.filtros.genero, argumento); homeBody(); },
+    filter: argumento => { estado.filtros = { ...estado.filtros, pais: argumento }; homeBody(); },
+    ftype: argumento => { estado.filtros = { ...estado.filtros, tipo: toggleFilterValue(estado.filtros.tipo, argumento) }; homeBody(); },
+    fgenre: argumento => { estado.filtros = { ...estado.filtros, genero: toggleFilterValue(estado.filtros.genero, argumento) }; homeBody(); },
     filterreset: () => { resetFilters(); homeBody(); },
     pickprofile: argumento => {
       perfiles.setActive(argumento);
@@ -230,8 +233,29 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   }
 
   // ============================================================
+  // FRONTERA GLOBAL DE ERRORES
+  // ============================================================
+
+  // Lo que nadie atrapó (un fallo de programación, una promesa olvidada) llega aquí: queda
+  // registrado con su detalle y el usuario ve un aviso estable, sin textos internos. Como
+  // máximo un aviso cada pocos segundos, para que un error repetido no tape la pantalla.
+  const MINIMO_ENTRE_AVISOS_MS = 5000;
+  let ultimoAviso = 0;
+
+  function reportUnexpectedError(error) {
+    logIgnored('Error no atrapado', error);
+    const ahora = Date.now();
+    if (ahora - ultimoAviso < MINIMO_ENTRE_AVISOS_MS) return;
+    ultimoAviso = ahora;
+    toast('Algo falló (' + userMessageFor(error) + '). Si se repite, recarga los addons.');
+  }
+
+  // ============================================================
   // ARRANQUE
   // ============================================================
+
+  window.addEventListener('error', evento => reportUnexpectedError(evento.error || new Error(evento.message)));
+  window.addEventListener('unhandledrejection', evento => reportUnexpectedError(evento.reason));
 
   document.addEventListener('click', handleGlobalClick);
   document.addEventListener('input', handleInput);

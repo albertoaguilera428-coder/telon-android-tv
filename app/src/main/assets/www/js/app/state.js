@@ -30,10 +30,8 @@ los usuarios.
     },
     setActive(id) { store.set('activeProfile', id); },
     add(nombre, color) {
-      const lista = this.all();
       const perfil = { id: Date.now().toString(36), name: nombre, color, pin: '' };
-      lista.push(perfil);
-      this.save(lista);
+      this.save([...this.all(), perfil]);
       return perfil;
     },
     remove(id) {
@@ -43,10 +41,7 @@ los usuarios.
     },
     // Devuelve false si el cambio no se pudo guardar.
     update(id, cambios) {
-      const lista = this.all();
-      const perfil = lista.find(p => p.id === id);
-      if (perfil) Object.assign(perfil, cambios);
-      return this.save(lista);
+      return this.save(this.all().map(p => (p.id === id ? { ...p, ...cambios } : p)));
     },
     findByName(nombre) {
       return this.all().find(p => p.name.toLowerCase() === nombre.trim().toLowerCase()) || null;
@@ -58,7 +53,8 @@ los usuarios.
   // ============================================================
 
   const OPCIONES_CALIDAD = ['Auto', '1080p', '720p', '480p'];
-  const SUBTITULOS = { lineaPorDefecto: -4, tamanoPorDefecto: 20 };
+  // Mismos valores por defecto que usa la sesión de reproducción: una sola fuente de verdad.
+  const { linea: LINEA_SUBS, tamano: TAMANO_SUBS } = Telon.domain.playbackSession.LIMITES_SUBTITULOS;
 
   const preferencias = {
     quality: () => store.get('quality', 'Auto'),
@@ -73,9 +69,9 @@ los usuarios.
     nartoSubs: () => store.get('nartoSubs', false),
     toggleNartoSubs() { store.set('nartoSubs', !this.nartoSubs()); },
     subtitlesEnabledFor(esNarto) { return esNarto ? this.nartoSubs() : this.autoSubs(); },
-    subtitleLine: () => store.get('subLine', SUBTITULOS.lineaPorDefecto),
+    subtitleLine: () => store.get('subLine', LINEA_SUBS.porDefecto),
     saveSubtitleLine(linea) { store.set('subLine', linea); },
-    subtitleSize: () => store.get('subSize', SUBTITULOS.tamanoPorDefecto),
+    subtitleSize: () => store.get('subSize', TAMANO_SUBS.porDefecto),
     saveSubtitleSize(tamano) { store.set('subSize', tamano); }
   };
 
@@ -126,16 +122,16 @@ los usuarios.
   const isInLibrary = referencia => estado.biblioteca.some(x => refKey(x) === refKey(referencia));
 
   // Guarda con el nombre y póster de la ficha completa si ya llegó; son mejores que los de la tarjeta.
-  // Devuelve true si quedó guardada y false si se quitó.
+  // Devuelve true si quedó guardada y false si se quitó. Siempre crea una lista nueva: quien
+  // tenga la anterior (una pantalla a medio pintar) no la ve cambiar por debajo.
   function toggleLibrary(referencia, ficha = {}) {
-    const indice = estado.biblioteca.findIndex(x => refKey(x) === refKey(referencia));
-    if (indice >= 0) {
-      estado.biblioteca.splice(indice, 1);
-    } else {
-      estado.biblioteca.push({ base: referencia.base, type: referencia.type, id: referencia.id, name: ficha.name || referencia.name, poster: ficha.poster || referencia.poster, country: referencia.country });
-    }
+    const clave = refKey(referencia);
+    const yaEstaba = estado.biblioteca.some(x => refKey(x) === clave);
+    estado.biblioteca = yaEstaba
+      ? estado.biblioteca.filter(x => refKey(x) !== clave)
+      : [...estado.biblioteca, { base: referencia.base, type: referencia.type, id: referencia.id, name: ficha.name || referencia.name, poster: ficha.poster || referencia.poster, country: referencia.country }];
     store.set('lib', estado.biblioteca);
-    return indice < 0;
+    return !yaEstaba;
   }
 
   function clearLibrary() {
@@ -149,7 +145,7 @@ los usuarios.
   }
 
   function recordProgress(entrada) {
-    estado.historial[entrada.key] = entrada;
+    estado.historial = { ...estado.historial, [entrada.key]: entrada };
     saveHistory();
   }
 
@@ -161,5 +157,5 @@ los usuarios.
   const resetAllData = () => store.clearAll();
 
   Telon.app = Telon.app || {};
-  Telon.app.state = { SUBTITULOS, perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
+  Telon.app.state = { perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
 })(window.Telon = window.Telon || {});

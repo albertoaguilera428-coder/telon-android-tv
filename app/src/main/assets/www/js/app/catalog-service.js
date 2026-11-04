@@ -10,6 +10,7 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
   'use strict';
 
   const { logIgnored } = Telon.infra.log;
+  const { InvalidDataError, userMessageFor } = Telon.infra.errors;
   const { fetchRemoteJSON } = Telon.infra.http;
   const { getJSON, normalizeBase, buildAddonUrl } = Telon.infra.addonClient;
   const { needsExtra, supportsSearch, keepValidMetas } = Telon.domain.catalog;
@@ -45,18 +46,19 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
     const base = normalizeBase(urlIngresada);
     if (!base) return null;
     const manifest = await getJSON(base + '/manifest.json');
-    if (!manifest || !manifest.id || !manifest.name) throw new Error('el manifest no tiene «id» o «name»');
-    const indiceExistente = estado.addons.findIndex(a => a.base === base || a.manifest.id === manifest.id);
+    if (!manifest || !manifest.id || !manifest.name) throw new InvalidDataError('el manifest no tiene «id» o «name»');
     const registro = { base, manifest, enabled: true };
-    if (indiceExistente >= 0) estado.addons[indiceExistente] = registro; else estado.addons.push(registro);
+    const esElMismo = a => a.base === base || a.manifest.id === manifest.id;
+    estado.addons = estado.addons.some(esElMismo) ? estado.addons.map(a => (esElMismo(a) ? registro : a)) : [...estado.addons, registro];
     saveAddons();
     return manifest;
   }
 
+  // Se crea una copia en vez de cambiar el addon: los virtuales son constantes de su módulo y
+  // modificarlos dejaba a SoloLatino desactivado aunque se recargaran los addons.
   function toggleAddon(base) {
-    const addon = findAddon(base);
-    if (!addon) return false;
-    addon.enabled = !addon.enabled;
+    if (!findAddon(base)) return false;
+    estado.addons = estado.addons.map(a => (a.base === base ? { ...a, enabled: !a.enabled } : a));
     saveAddons();
     return true;
   }
@@ -73,38 +75,32 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
   const toRow = (addon, catalogo) => respuesta => ({ addon, cat: catalogo, metas: keepValidMetas(respuesta.metas) });
 
   // Cada carga cuenta sus propios errores: dos cargas simultáneas no comparten el contador.
+  // Todos los catálogos mostrables de los addons activos, como pares [addon, catálogo].
+  const listCatalogs = filtro => getEnabledAddons().flatMap(addon => (addon.manifest.catalogs || []).filter(filtro).map(catalogo => [addon, catalogo]));
+
+  // Cada carga cuenta sus propios errores: dos cargas simultáneas no comparten el contador.
   async function loadCatalogs() {
     let errores = 0;
-    const peticiones = [];
-    for (const addon of getEnabledAddons()) {
-      for (const catalogo of (addon.manifest.catalogs || [])) {
-        if (needsExtra(catalogo)) continue;
-        peticiones.push(getJSON(buildAddonUrl(addon, 'catalog', catalogo.type, catalogo.id))
-          .then(toRow(addon, catalogo))
-          .catch(error => {
-            logIgnored('El catálogo ' + catalogo.id + ' no respondió', error);
-            errores++;
-            return null;
-          }));
-      }
-    }
+    const peticiones = listCatalogs(catalogo => !needsExtra(catalogo)).map(([addon, catalogo]) =>
+      getJSON(buildAddonUrl(addon, 'catalog', catalogo.type, catalogo.id))
+        .then(toRow(addon, catalogo))
+        .catch(error => {
+          logIgnored('El catálogo ' + catalogo.id + ' no respondió', error);
+          errores++;
+          return null;
+        }));
     const filas = (await Promise.all(peticiones)).filter(f => f && f.metas.length);
     return { filas, errores };
   }
 
   async function searchCatalogs(consulta) {
-    const peticiones = [];
-    for (const addon of getEnabledAddons()) {
-      for (const catalogo of (addon.manifest.catalogs || [])) {
-        if (!supportsSearch(catalogo)) continue;
-        peticiones.push(getJSON(buildAddonUrl(addon, 'catalog', catalogo.type, catalogo.id, 'search=' + encodeURIComponent(consulta)))
-          .then(toRow(addon, catalogo))
-          .catch(error => {
-            logIgnored('La búsqueda en ' + catalogo.id + ' falló', error);
-            return null;
-          }));
-      }
-    }
+    const peticiones = listCatalogs(supportsSearch).map(([addon, catalogo]) =>
+      getJSON(buildAddonUrl(addon, 'catalog', catalogo.type, catalogo.id, 'search=' + encodeURIComponent(consulta)))
+        .then(toRow(addon, catalogo))
+        .catch(error => {
+          logIgnored('La búsqueda en ' + catalogo.id + ' falló', error);
+          return null;
+        }));
     return (await Promise.all(peticiones)).filter(f => f && f.metas.length);
   }
 
@@ -123,7 +119,8 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
         const respuesta = await getJSON(buildAddonUrl(addon, 'meta', referencia.type, referencia.id));
         if (respuesta && respuesta.meta) ficha = { ...ficha, ...respuesta.meta };
       } catch (error) {
-        aviso = 'No se pudo cargar la ficha completa (' + error.message + ').';
+        logIgnored('No se pudo cargar la ficha de ' + referencia.id, error);
+        aviso = 'No se pudo cargar la ficha completa (' + userMessageFor(error) + ').';
       }
     }
     return { ficha, episodios: buildEpisodeList(ficha), aviso, addonInstalado: Boolean(addon) };

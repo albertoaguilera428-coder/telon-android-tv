@@ -14,6 +14,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   const { politeFetch } = Telon.infra.http;
   const { registerVirtualAddon } = Telon.infra.addonClient;
   const { createBoundedCache } = Telon.infra.cache;
+  const { HttpError } = Telon.infra.errors;
 
   // ============================================================
   // CONSTANTES
@@ -55,7 +56,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
 
   async function slFetch(ruta) {
     const respuesta = await politeFetch(URL_SOLOLATINO + ruta, { headers: { 'Accept-Language': 'es-419,es' }, credentials: 'include' });
-    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+    if (!respuesta.ok) throw new HttpError(respuesta.status);
     return respuesta.text();
   }
 

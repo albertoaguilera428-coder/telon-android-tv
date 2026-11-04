@@ -84,3 +84,26 @@ test('Atrás en Samsung cierra la app solo si no queda nada abierto', () => {
   assert.ok(app.log.includes('tizen exit'));
   app.close();
 });
+
+// ============================================================
+// CONTRATO COMÚN (POLIMORFISMO)
+// ============================================================
+
+test('los tres adaptadores cumplen el mismo contrato y se pueden usar indistintamente', () => {
+  const contrato = modo => {
+    const app = loadApp({ modo, hasta: 'js/infra/platform.js' });
+    const plataforma = app.Telon.infra.platform;
+    const forma = Object.fromEntries(Object.keys(plataforma).sort().map(k => [k, typeof plataforma[k]]));
+    // Ninguna acción puede romper en ningún sistema: donde no aplica, no hace nada o devuelve false.
+    plataforma.setOrientation('landscape');
+    plataforma.closeEmbed();
+    assert.equal(typeof plataforma.openEmbed('https://x', 'https://y'), 'boolean');
+    assert.equal(typeof plataforma.downloadUpdate('https://x/a.apk'), 'boolean');
+    assert.ok(Object.isFrozen(plataforma), 'nadie puede cambiar el adaptador desde afuera');
+    app.close();
+    return forma;
+  };
+  const android = contrato('android-tv');
+  assert.deepEqual(contrato('tizen'), android);
+  assert.deepEqual(contrato('browser'), android);
+});

@@ -54,8 +54,9 @@ function installFakes(w, opciones, log, prompts) {
     log.push('fetch ' + (init.method || 'GET') + ' ' + url + (init.body ? ' ' + init.body : ''));
     // Cada respuesta llega en su propio turno del reloj, en el orden en que se pidió, como en una red real.
     await new Promise(r => setTimeout(r, 1));
+    // Igual que un navegador: un error HTTP también trae cuerpo (vacío si no hay contenido).
     const status = respuesta.status || 200;
-    return { ok: status < 400, status, url: String(url), json: async () => respuesta.json, text: async () => respuesta.text ?? JSON.stringify(respuesta.json) };
+    return { ok: status < 400, status, url: String(url), json: async () => respuesta.json, text: async () => respuesta.text ?? (respuesta.json === undefined ? '' : JSON.stringify(respuesta.json)) };
   };
   w.URL.createObjectURL = () => 'blob:sub';
   w.prompt = () => prompts.shift() ?? null;

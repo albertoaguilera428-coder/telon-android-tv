@@ -11,6 +11,7 @@ repositorio. Devuelve mensajes en español listos para mostrar.
   'use strict';
 
   const { logIgnored } = Telon.infra.log;
+  const { userMessageFor } = Telon.infra.errors;
   const { firebase, postFirebase } = Telon.infra.firebaseAuth;
   const { validateRegistration, validateLogin } = Telon.domain.account;
   const { sesion } = Telon.app.state;
@@ -49,7 +50,8 @@ repositorio. Devuelve mensajes en español listos para mostrar.
       sesion.save({ provider: 'email', name: nombre.trim(), email: usuario.email, verified: false, idToken: usuario._idToken });
       return ok('Cuenta creada. Revisa tu correo para verificar.');
     } catch (error) {
-      return failure(MENSAJES_REGISTRO[error.code] || error.message || 'Error al crear cuenta');
+      logIgnored('Firebase rechazó el registro', error);
+      return failure(MENSAJES_REGISTRO[error.code] || 'No se pudo crear la cuenta: ' + userMessageFor(error));
     }
   }
 
@@ -61,7 +63,8 @@ repositorio. Devuelve mensajes en español listos para mostrar.
       sesion.save({ provider: 'email', name: usuario.displayName || correo.split('@')[0], email: usuario.email, verified: usuario.emailVerified, idToken: usuario._idToken });
       return ok('Sesión iniciada como ' + (usuario.displayName || usuario.email));
     } catch (error) {
-      return failure(MENSAJES_INGRESO[error.code] || error.message || 'Error al iniciar sesión');
+      logIgnored('Firebase rechazó el inicio de sesión', error);
+      return failure(MENSAJES_INGRESO[error.code] || 'No se pudo iniciar sesión: ' + userMessageFor(error));
     }
   }
 

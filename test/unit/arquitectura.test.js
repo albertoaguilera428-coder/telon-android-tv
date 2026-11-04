@@ -10,7 +10,7 @@ después en index.html.
   dominio        → solo otras reglas del dominio (sin DOM, red, almacenamiento ni reloj)
   infraestructura→ solo otra infraestructura
   aplicación     → dominio e infraestructura (sin DOM ni pantallas)
-  presentación   → aplicación y dominio; de la infraestructura solo plataforma y registro
+  presentación   → aplicación y dominio; de la infraestructura solo plataforma, registro y tipos de error
 */
 'use strict';
 
@@ -42,8 +42,8 @@ const PROHIBIDO = {
   domain: [/\bdocument\b/, /\bwindow\.(?!Telon)/, /\bfetch\(/, /\blocalStorage\b/, /\bconsole\./, /\bDate\.now\(/, /\bsetTimeout\(/, /Telon\.(infra|app|ui)\b/],
   infra: [/Telon\.(app|ui|domain)\b/],
   app: [/\bdocument\b/, /\bfetch\(/, /\blocalStorage\b/, /Telon\.ui\b/],
-  ui: [/\bfetch\(/, /\blocalStorage\b/, /Telon\.infra\.(?!platform\b|log\b)\w+/],
-  arranque: [/\bfetch\(/, /\blocalStorage\b/, /Telon\.infra\.(?!platform\b|log\b)\w+/]
+  ui: [/\bfetch\(/, /\blocalStorage\b/, /Telon\.infra\.(?!platform\b|log\b|errors\b)\w+/],
+  arranque: [/\bfetch\(/, /\blocalStorage\b/, /Telon\.infra\.(?!platform\b|log\b|errors\b)\w+/]
 };
 
 test('cada capa usa solo lo que le corresponde', () => {

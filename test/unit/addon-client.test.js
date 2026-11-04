@@ -183,11 +183,11 @@ test('sortVideos conserva el orden original entre episodios sin número', () => 
   assert.deepEqual(plain(empatados.map(v => v.id)), ['b', 'a']);
 });
 
-test('fetchRemoteJSON informa el código HTTP y conserva la causa del error', async () => {
+test('fetchRemoteJSON informa el código HTTP con un error tipado', async () => {
   const original = app.window.fetch;
   app.window.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
   try {
-    await assert.rejects(cliente.fetchRemoteJSON('https://caido.x'), error => error.message === 'HTTP 503' && error.cause && error.cause.message === 'HTTP 503');
+    await assert.rejects(cliente.fetchRemoteJSON('https://caido.x'), error => error.name === 'HttpError' && error.status === 503 && /HTTP 503/.test(error.message));
   } finally {
     app.window.fetch = original;
   }

@@ -11,6 +11,8 @@ se recorta al centro y se reduce a 256 px en JPEG antes de guardarla (unos 20–
 (function (Telon) {
   'use strict';
 
+  const { InvalidDataError } = Telon.infra.errors;
+
   // ============================================================
   // CONSTANTES
   // ============================================================
@@ -33,7 +35,7 @@ se recorta al centro y se reduce a 256 px en JPEG antes de guardarla (unos 20–
       const url = URL.createObjectURL(archivo);
       const imagen = new Image();
       imagen.onload = () => { URL.revokeObjectURL(url); resolver(imagen); };
-      imagen.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('el archivo no es una imagen que se pueda abrir')); };
+      imagen.onerror = () => { URL.revokeObjectURL(url); rechazar(new InvalidDataError('el archivo no es una imagen que se pueda abrir')); };
       imagen.src = url;
     });
   }
