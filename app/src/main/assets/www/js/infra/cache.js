@@ -1,48 +1,94 @@
 /*
-Telón - Caché en memoria con tamaño máximo
+Telón - Caché en memoria (cache-aside) con tamaño máximo
 Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
-Las cachés de los addons virtuales guardaban cada búsqueda y cada ficha para siempre: en
-una sesión larga en un televisor (poca memoria) eso solo crece. Esta caché tiene un tope
-y una vida útil; al llenarse descarta la entrada usada hace más tiempo (LRU).
+Guarda por un rato lo que ya descargamos de los sitios (catálogos, búsquedas, fichas)
+para no repetir el trabajo. No es la fuente de verdad: si se borra, se vuelve a pedir.
 
-Se apoya en Map, que conserva el orden de inserción: volver a insertar una clave al
-leerla la pasa al final, así la primera es siempre la menos usada. Leer, guardar y
-descartar cuestan O(1).
+  - Tamaño máximo y vida útil: al llenarse descarta lo usado hace más tiempo (LRU); en una
+    sesión larga en un televisor (poca memoria) no puede crecer sin fin.
+  - Una sola carga por clave: si cuatro catálogos piden la misma búsqueda a la vez, sale
+    una petición y los cuatro reciben el resultado (evita la estampida).
+  - Los errores no se guardan: el siguiente pedido vuelve a intentar.
+  - Lo guardado se congela: todos reciben el mismo objeto y nadie puede cambiarlo por los demás.
+
+Se apoya en Map, que conserva el orden de inserción: volver a insertar una clave al leerla
+la pasa al final, así la primera es siempre la menos usada. Leer, guardar y descartar
+cuestan O(1).
 */
 (function (Telon) {
   'use strict';
 
+  // ============================================================
+  // AYUDAS
+  // ============================================================
+
+  function deepFreeze(valor) {
+    if (valor && typeof valor === 'object' && !Object.isFrozen(valor)) {
+      Object.freeze(valor);
+      Object.values(valor).forEach(deepFreeze);
+    }
+    return valor;
+  }
+
+  // ============================================================
+  // CACHÉ
+  // ============================================================
+
   function createBoundedCache({ maximo, vidaMs }) {
     const entradas = new Map();
+    // Cargas en curso por clave (single-flight): mientras una está en vuelo, los demás la esperan.
+    const enCurso = new Map();
+    const metricas = { aciertos: 0, fallos: 0, descartes: 0, cargasCompartidas: 0 };
 
     function get(clave) {
       const entrada = entradas.get(clave);
-      if (!entrada) return undefined;
+      if (!entrada) { metricas.fallos++; return undefined; }
       entradas.delete(clave);
-      if (Date.now() - entrada.ts >= vidaMs) return undefined;
+      if (Date.now() - entrada.ts >= vidaMs) { metricas.fallos++; return undefined; }
       entradas.set(clave, entrada);
+      metricas.aciertos++;
       return entrada.valor;
     }
 
     function set(clave, valor) {
       entradas.delete(clave);
-      entradas.set(clave, { valor, ts: Date.now() });
-      if (entradas.size > maximo) entradas.delete(entradas.keys().next().value);
+      entradas.set(clave, { valor: deepFreeze(valor), ts: Date.now() });
+      if (entradas.size > maximo) {
+        entradas.delete(entradas.keys().next().value);
+        metricas.descartes++;
+      }
     }
 
-    // Si dos pantallas piden lo mismo mientras carga, cada una hace su petición: preferimos eso
-    // a mantener promesas pendientes en la caché y tener que limpiarlas cuando fallan.
-    async function getOrLoad(clave, cargador) {
+    function getOrLoad(clave, cargador) {
+      if (enCurso.has(clave)) {
+        metricas.cargasCompartidas++;
+        return enCurso.get(clave);
+      }
       const guardado = get(clave);
-      if (guardado !== undefined) return guardado;
-      const valor = await cargador();
-      set(clave, valor);
-      return valor;
+      if (guardado !== undefined) return Promise.resolve(guardado);
+      // La carga arranca ya (como antes de la caché); si el cargador lanza, se vuelve un rechazo.
+      const carga = new Promise(resolver => resolver(cargador())).then(valor => {
+        set(clave, valor);
+        return entradas.get(clave).valor;
+      });
+      enCurso.set(clave, carga);
+      // Se quita al terminar, bien o mal: un error no queda guardado como si fuera el valor.
+      const liberar = () => { if (enCurso.get(clave) === carga) enCurso.delete(clave); };
+      carga.then(liberar, liberar);
+      return carga;
     }
 
-    return { get, set, getOrLoad, size: () => entradas.size };
+    // Invalidación explícita: cuando el usuario pide recargar, la caché no puede ganarle.
+    function clear() {
+      entradas.clear();
+      enCurso.clear();
+    }
+
+    const stats = () => ({ ...metricas, tamano: entradas.size, maximo });
+
+    return { get, set, getOrLoad, clear, stats, size: () => entradas.size };
   }
 
   Telon.infra.cache = { createBoundedCache };

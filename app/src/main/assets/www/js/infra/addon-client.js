@@ -21,18 +21,24 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
   // Las fuentes tardan más que el resto: varios addons resuelven el enlace en el momento.
   const ESPERA_FUENTES_MS = 60000;
 
-  // base del addon virtual → función que recibe la ruta ("catalog/series/x.json") y devuelve el JSON
+  // base del addon virtual → { responder, limpiarCache }. responder recibe la ruta
+  // ("catalog/series/x.json") y devuelve el JSON; limpiarCache borra lo que guardó el sitio.
   const addonsVirtuales = Object.create(null);
 
-  function registerVirtualAddon(addon, responder) {
-    addonsVirtuales[addon.base] = responder;
+  function registerVirtualAddon(addon, responder, { limpiarCache = () => {} } = {}) {
+    addonsVirtuales[addon.base] = { responder, limpiarCache };
+  }
+
+  // Invalidación explícita: "Recargar addons" tiene que traer contenido nuevo, no lo guardado.
+  function clearVirtualCaches() {
+    Object.values(addonsVirtuales).forEach(addon => addon.limpiarCache());
   }
 
   async function getJSON(url, ms) {
     const corte = url.indexOf('/');
-    const responder = corte > 0 ? addonsVirtuales[url.slice(0, corte)] : undefined;
-    if (responder && corte < url.length - 1) {
-      return (await responder(url.slice(corte + 1))) || { err: 'not found' };
+    const virtual = corte > 0 ? addonsVirtuales[url.slice(0, corte)] : undefined;
+    if (virtual && corte < url.length - 1) {
+      return (await virtual.responder(url.slice(corte + 1))) || { err: 'not found' };
     }
     return fetchRemoteJSON(url, ms);
   }
@@ -123,5 +129,5 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
     return URL.createObjectURL(new Blob([convertSrtToVtt(texto)], { type: 'text/vtt' }));
   }
 
-  Telon.infra.addonClient = { getJSON, registerVirtualAddon, normalizeBase, buildAddonUrl, supportsResource, resolveStreams, resolveSubs, convertSrtToVtt, subBlob };
+  Telon.infra.addonClient = { getJSON, registerVirtualAddon, clearVirtualCaches, normalizeBase, buildAddonUrl, supportsResource, resolveStreams, resolveSubs, convertSrtToVtt, subBlob };
 })(window.Telon = window.Telon || {});

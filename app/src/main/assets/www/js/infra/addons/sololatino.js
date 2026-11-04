@@ -193,7 +193,8 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   }
 
   async function respondMeta(tipo, slug) {
-    const html = await withSlCache('meta:' + slug, () => slFetch(pagePath(tipo, slug)));
+    // La clave lleva el tipo: /pelicula/x y /serie/x son páginas distintas con el mismo slug.
+    const html = await withSlCache('meta:' + tipo + ':' + slug, () => slFetch(pagePath(tipo, slug)));
     const ficha = slParseMeta(html, 'sl-' + slug);
     ficha.videos.forEach(v => {
       if (ficha._idImdb) ADDON_SOLOLATINO._idsImdb[v.id] = ficha._idImdb;
@@ -325,6 +326,6 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     return { err: 'not found' };
   }
 
-  registerVirtualAddon(ADDON_SOLOLATINO, respond);
-  Telon.infra.sololatino = { ADDON_SOLOLATINO, respond, slParseCards, slParseMeta, slugFromName, seedKnownSlug, warmUpSlugForImdb };
+  registerVirtualAddon(ADDON_SOLOLATINO, respond, { limpiarCache: () => cacheSl.clear() });
+  Telon.infra.sololatino = { cacheStats: () => cacheSl.stats(), ADDON_SOLOLATINO, respond, slParseCards, slParseMeta, slugFromName, seedKnownSlug, warmUpSlugForImdb };
 })(window.Telon = window.Telon || {});

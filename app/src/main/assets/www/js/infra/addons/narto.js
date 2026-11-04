@@ -61,9 +61,10 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
     };
   }
 
-  async function ndSections() {
-    const guardadas = cacheNarto.get('secciones');
-    if (guardadas) return guardadas;
+  // Catálogo, búsqueda y fichas la piden a la vez al abrir la app: se descarga una sola vez.
+  const ndSections = () => cacheNarto.getOrLoad('secciones', loadSections);
+
+  async function loadSections() {
     const datos = JSON.parse(await ndFetchText('/home/providers/sections?provider=anyreel&lang=es-ES&target_lang=es-ES'));
     if (!datos.ok || !datos.sections) return [];
     const dramas = [], vistos = new Set();
@@ -76,7 +77,6 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
         dramas.push(drama);
       }
     }
-    cacheNarto.set('secciones', dramas);
     return dramas;
   }
 
@@ -120,15 +120,12 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
       videos: parseEpisodes(html, idLibro) };
   }
 
-  async function ndMeta(idLibro) {
-    const claveCache = 'meta:' + idLibro;
-    const guardada = cacheNarto.get(claveCache);
-    if (guardada) return guardada;
+  const ndMeta = idLibro => cacheNarto.getOrLoad('meta:' + idLibro, () => loadMeta(idLibro));
+
+  async function loadMeta(idLibro) {
     const slug = await ndResolveSlug(idLibro);
     if (!slug) return { id: 'nd-' + idLibro, type: 'series', name: 'Drama', videos: [] };
-    const valor = parseMetaPage(await ndFetchText('/detail/watch/' + slug + '?lang=es-ES'), idLibro, slug);
-    cacheNarto.set(claveCache, valor);
-    return valor;
+    return parseMetaPage(await ndFetchText('/detail/watch/' + slug + '?lang=es-ES'), idLibro, slug);
   }
 
   // ============================================================
@@ -168,6 +165,6 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
     return { streams: [{ url: episodio._url, name: 'Narto Drama', title: episodio.title }] };
   }
 
-  registerVirtualAddon(ADDON_NARTO, respond);
-  Telon.infra.narto = { ADDON_NARTO, respond, parseMetaPage, isNartoAddon: base => base === ADDON_NARTO.base || (base || '').includes('/narto') };
+  registerVirtualAddon(ADDON_NARTO, respond, { limpiarCache: () => cacheNarto.clear() });
+  Telon.infra.narto = { cacheStats: () => cacheNarto.stats(), ADDON_NARTO, respond, parseMetaPage, isNartoAddon: base => base === ADDON_NARTO.base || (base || '').includes('/narto') };
 })(window.Telon = window.Telon || {});

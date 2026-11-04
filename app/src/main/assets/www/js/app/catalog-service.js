@@ -12,7 +12,7 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
   const { logIgnored } = Telon.infra.log;
   const { InvalidDataError, userMessageFor } = Telon.infra.errors;
   const { fetchRemoteJSON } = Telon.infra.http;
-  const { getJSON, normalizeBase, buildAddonUrl } = Telon.infra.addonClient;
+  const { getJSON, normalizeBase, buildAddonUrl, clearVirtualCaches } = Telon.infra.addonClient;
   const { needsExtra, supportsSearch, keepValidMetas } = Telon.domain.catalog;
   const { buildEpisodeList } = Telon.domain.episodes;
   const { estado, getEnabledAddons, findAddon, saveAddons } = Telon.app.state;
@@ -30,6 +30,8 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
   // Devuelve false si una recarga más nueva empezó mientras esta esperaba.
   async function reloadDefaultAddons() {
     const secuencia = ++secuenciaRecarga;
+    // El usuario pidió recargar: lo guardado de los sitios ya no sirve.
+    clearVirtualCaches();
     const resultados = await Promise.allSettled(ADDONS_PREDETERMINADOS.map(base =>
       fetchRemoteJSON(base + '/manifest.json').then(manifest => ({ base, manifest, enabled: true }))));
     if (secuencia !== secuenciaRecarga) return false;
