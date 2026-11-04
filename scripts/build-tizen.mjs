@@ -3,8 +3,8 @@ Telón - Empaquetado para televisores Samsung (.wgt)
 Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
-Toma la misma app web del APK, rebaja la sintaxis de JavaScript para el Chromium de
-Tizen 5.5 y la deja lista en build/tizen. Si Tizen Studio está instalado y existe un
+Toma la misma app web del APK, rebaja JavaScript y CSS para el Chromium de Tizen 6.5
+y la deja lista en build/tizen. Si Tizen Studio está instalado y existe un
 perfil de certificados, además firma y genera build/Telon.wgt:
 
   TIZEN_PROFILE=MiPerfil npm run build:tizen
@@ -26,8 +26,8 @@ const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WWW = path.join(RAIZ, 'app', 'src', 'main', 'assets', 'www');
 const SALIDA = path.join(RAIZ, 'build', 'tizen');
 const ICONO = path.join(RAIZ, 'app', 'src', 'main', 'res', 'mipmap-xxxhdpi', 'ic_launcher.png');
-// Tizen 5.5 (televisores 2020) trae Chromium 69: sin ?. ni ?? ni otras novedades.
-const OBJETIVO_JS = 'chrome69';
+// Tizen 6.5 (televisores 2021) trae Chromium 85: sin ?? asignado, inset ni aspect-ratio.
+const OBJETIVO_JS = 'chrome85';
 const ARCHIVOS_ESTATICOS = ['index.html', 'logo.webp'];
 const CARPETAS_ESTATICAS = ['fonts'];
 
@@ -54,8 +54,7 @@ function transpileScript(rutaRelativa) {
   fs.writeFileSync(destino, code);
 }
 
-// El CSS también se rebaja: esbuild convierte inset en top/right/bottom/left y otras propiedades
-// que Chromium 69 no entiende. No puede inventar gap en flexbox (Chromium 84): eso se ve en README.
+// El CSS también se rebaja: esbuild convierte inset (Chromium 87) en top/right/bottom/left.
 function transpileStyles() {
   const css = fs.readFileSync(path.join(WWW, 'style.css'), 'utf8');
   const { code } = transformSync(css, { loader: 'css', target: OBJETIVO_JS, sourcefile: 'style.css', legalComments: 'inline' });

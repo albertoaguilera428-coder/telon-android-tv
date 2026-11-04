@@ -5,12 +5,12 @@ Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
 npm run build:tizen copia la app web junto a este archivo y arma el .wgt. La versión
-mínima es Tizen 5.5 (televisores Samsung de 2020 en adelante): ahí probamos la sintaxis
-que genera esbuild y los polyfills de js/polyfills.js.
+mínima es Tizen 6.5 (televisores Samsung de 2021 en adelante, Chromium 85): el diseño usa
+gap en flexbox, que no existe antes.
 -->
 <widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://telon.app/tv" version="1.0.0" viewmodes="maximized">
     <!-- El package son 10 caracteres alfanuméricos; si se cambia, la TV lo trata como otra app. -->
-    <tizen:application id="TelonTVapp.Telon" package="TelonTVapp" required_version="5.5"/>
+    <tizen:application id="TelonTVapp.Telon" package="TelonTVapp" required_version="6.5"/>
     <tizen:profile name="tv-samsung"/>
     <content src="index.html"/>
     <icon src="icon.png"/>

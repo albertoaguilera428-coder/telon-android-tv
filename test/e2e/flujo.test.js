@@ -113,7 +113,7 @@ test('en Samsung se reproduce la fuente nativa aunque el primer addon solo ofrez
   assert.ok(!reproductor.log.some(l => l.includes('openEmbed')));
 });
 
-test('el paquete para Samsung (código transpilado a Chromium 69) hace el mismo recorrido sin errores', async () => {
+test('el paquete para Samsung (código transpilado a Chromium 85) hace el mismo recorrido sin errores', async () => {
   const raiz = path.join(__dirname, '..', '..');
   execFileSync(process.execPath, [path.join(raiz, 'scripts', 'build-tizen.mjs')], { stdio: 'ignore' });
   const { capturas, errores } = await runFullJourney('tizen', path.join(raiz, 'build', 'tizen'));

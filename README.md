@@ -194,10 +194,9 @@ Estilo "vibrante", definido en `style.css` con variables (`--fondo`, `--degradad
   imagen, una desenfocada.
 - Celular y TV se diseñan por igual. En TV, el foco del control es un anillo rosa con brillo.
 
-**Compatibilidad en Samsung:** los televisores de 2020 traen Chromium 69. Los pósters no
-usan `aspect-ratio` y `build:tizen` convierte `inset`, pero los espacios entre elementos
-usan `gap` en flexbox, que llegó en Chromium 84 (Tizen 6.5, televisores de 2021). En un
-televisor de 2020 la app funciona, pero con los elementos más juntos.
+**Compatibilidad en Samsung:** desde televisores de 2021 (Tizen 6.5, Chromium 85). El diseño
+usa `gap` en flexbox (Chromium 84); los pósters no usan `aspect-ratio` y `build:tizen`
+convierte `inset`.
 
 ## Seguridad
 
@@ -250,7 +249,7 @@ keyPassword=…
 
 Requisitos del televisor y del equipo:
 
-1. **TV Samsung de 2020 en adelante (Tizen 5.5 o superior)**, en la misma red que el
+1. **TV Samsung de 2021 en adelante (Tizen 6.5 o superior)**, en la misma red que el
    computador.
 2. **Modo desarrollador**: en la TV, abre *Apps*, marca `1 2 3 4 5` con el control,
    activa *Developer mode*, escribe la IP del computador y reinicia la TV.

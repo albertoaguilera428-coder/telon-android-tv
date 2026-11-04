@@ -3,15 +3,15 @@ Telón - Polyfills
 Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
-Los televisores Samsung de 2020 (Tizen 5.5) traen un Chromium 69. La sintaxis moderna la
-rebaja esbuild al empaquetar el .wgt, pero las funciones nuevas del lenguaje hay que
-rellenarlas a mano. Solo agregamos las que la app usa de verdad.
+Los televisores Samsung más viejos que soportamos (2021, Tizen 6.5) traen Chromium 85. La
+sintaxis moderna la rebaja esbuild al empaquetar el .wgt; las funciones nuevas del
+lenguaje se rellenan aquí. Solo agregamos las que la app usa de verdad.
 */
 (function () {
   'use strict';
 
   // ============================================================
-  // Promise.allSettled (Chromium 76+)
+  // Promise.allSettled (Chromium 76+): ya viene en Tizen 6.5; queda por navegadores de escritorio viejos.
   // ============================================================
   if (typeof Promise.allSettled !== 'function') {
     Promise.allSettled = function (promesas) {

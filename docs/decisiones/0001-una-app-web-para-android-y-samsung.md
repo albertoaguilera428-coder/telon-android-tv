@@ -23,14 +23,14 @@ dentro de un WebView. El código vivía en un solo `app.js` de unas 1.350 línea
 
 Opción 4. Un adaptador (`js/infra/platform.js`) aísla lo que cambia entre sistemas: puente
 de Android, teclas de Tizen y viewport. Para Samsung, `scripts/build-tizen.mjs` rebaja
-la sintaxis con esbuild (objetivo Chromium 69, Tizen 5.5) sin empaquetar los archivos.
+la sintaxis con esbuild (objetivo Chromium 85, Tizen 6.5) sin empaquetar los archivos.
 
 ## Consecuencias
 
 - El mismo código y las mismas pruebas sirven para las dos plataformas.
 - El orden de los `<script>` importa: un módulo solo puede usar a los anteriores. Si
   aparece un ciclo, el diseño de los límites está mal y hay que revisarlo.
-- Samsung de 2019 o anteriores (Tizen < 5.5) quedan fuera, salvo que se agreguen más
-  polyfills y se baje el objetivo de esbuild.
+- Samsung de 2020 o anteriores (Tizen < 6.5) quedan fuera (actualizado el 2026-11-04 con el
+  rediseño, que usa `gap` en flexbox). Volver a incluirlos exige respaldos con márgenes.
 - Si algún día la app crece lo suficiente como para que mantener el orden a mano
   duela, se revisa la opción 3.
