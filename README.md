@@ -51,34 +51,66 @@ mutación corre una vez por semana.
 
 ## Arquitectura
 
+Monolito en capas (ver [0005](docs/decisiones/0005-arquitectura-en-capas.md)):
+
 ```
 app/src/main/
 ├── java/app/telon/tv/   MainActivity (WebView + puente TelonBridge) y PlaybackRules
 └── assets/www/
-    ├── index.html       esqueleto y orden de carga de los módulos
+    ├── index.html       esqueleto y orden de carga
     └── js/
-        ├── platform.js      Android / Samsung / navegador (el único que sabe dónde corre)
-        ├── util.js, icons.js, polyfills.js
-        ├── addon-client.js  protocolo Stremio y registro de addons virtuales
-        ├── addons/          Narto Drama y SoloLatino (sitios sin servidor Stremio)
-        ├── state.js         estado de la interfaz y datos guardados
-        ├── ui/              componentes, inicio, pantallas, ficha, reproductor, control remoto
-        ├── auth.js, update.js
-        └── main.js          tabla de acciones y arranque
+        ├── infra/       plataforma, http (429, tope y tiempos), almacenamiento, caché,
+        │                protocolo de addons, Narto, SoloLatino, Firebase
+        ├── domain/      reglas puras: países, episodios, catálogo, progreso, cuenta
+        ├── app/         estado y repositorios; casos de uso de catálogo, reproducción,
+        │                cuenta y actualización
+        ├── ui/          pantallas, reproductor, control remoto, componentes
+        └── main.js      tabla de acciones y arranque
 ```
 
-Son scripts clásicos que comparten `window.Telon`. Cada uno usa solo a los que se
-cargaron antes; el orden está en `index.html`. Las decisiones difíciles de revertir están en
-[docs/decisiones/](docs/decisiones/): [0001](docs/decisiones/0001-una-app-web-para-android-y-samsung.md)
-una app web para Android y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md)
-Firebase por REST, [0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia
-del release.
+| Capa | Puede usar | No puede usar |
+|---|---|---|
+| dominio | otras reglas del dominio | DOM, red, almacenamiento, reloj |
+| infraestructura | otra infraestructura | dominio, aplicación, pantallas |
+| aplicación | dominio, infraestructura | DOM, pantallas |
+| presentación | aplicación, dominio, plataforma y registro | red, almacenamiento |
 
-**Límites de consumo:** Telón no expone ninguna API; consume la de addons, sitios y
-Firebase. Si un servidor responde `429`, `js/addon-client.js` respeta su `Retry-After`
-(30 s si no lo indica, 10 min como máximo) y no le pide nada más hasta entonces. No hay
-reintentos automáticos: el usuario decide con "Reintentar". La búsqueda espera 350 ms a
-que se deje de escribir antes de consultar.
+`test/unit/arquitectura.test.js` hace cumplir esta tabla y el orden de carga. Son scripts
+clásicos que comparten `window.Telon`; el orden está en `index.html`.
+
+**Patrones en uso** (solo donde resuelven algo):
+
+- *Adapter*: `infra/platform.js` (Android, Samsung, navegador) y `infra/firebase-auth.js`
+  (imita el SDK).
+- *Repository*: perfiles, preferencias, sesión, lista e historial en `app/state.js`.
+- *Command*: tablas `data-act` y `data-p` (`main.js`, `ui/player.js`) en lugar de cadenas de `if`.
+- *Registro de addons virtuales*: cada sitio se registra en `infra/addon-client.js` y responde
+  como un addon (abierto a agregar sitios sin tocar el cliente).
+- *Facade*: los servicios de `app/` esconden protocolo, sitios y almacenamiento a las pantallas.
+
+No se usan Singleton (las dependencias se toman explícitas del espacio de nombres), State
+(el reproductor tiene tres estados simples) ni Observer (no hay suscriptores múltiples).
+
+Las decisiones difíciles de revertir están en [docs/decisiones/](docs/decisiones/):
+[0001](docs/decisiones/0001-una-app-web-para-android-y-samsung.md) una app web para Android
+y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md) Firebase por REST,
+[0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia del release,
+[0004](docs/decisiones/0004-sin-kafka-ni-broker-de-eventos.md) sin Kafka ni broker de eventos,
+[0005](docs/decisiones/0005-arquitectura-en-capas.md) arquitectura en capas.
+
+**Límites de consumo y concurrencia:** Telón no expone ninguna API; consume la de addons,
+sitios y Firebase, siempre a través de `infra/http.js`:
+
+- Si un servidor responde `429` se respeta su `Retry-After` (30 s si no lo indica, 10 min
+  como máximo) y no se le pide nada más hasta entonces. No hay reintentos automáticos.
+- Como máximo 8 peticiones simultáneas; el resto espera en una cola de hasta 100 y, si se
+  llena, se rechaza. Medido con los addons de ejemplo, el arranque llega a 7 y una búsqueda
+  a 5, así que en el caso normal no hay espera.
+- Toda petición se corta a los 15 s (60 s para fuentes de video).
+- Las cachés de los sitios tienen tope (100 entradas, 10 min) y descartan lo menos usado.
+- Cargas que se pisan (inicio, búsqueda, recarga de addons, ficha, reproductor) se
+  descartan con un número de secuencia o token: siempre gana la última.
+- La búsqueda espera 350 ms a que se deje de escribir antes de consultar.
 
 **No renombrar sin migración:** las claves de `localStorage` y los campos guardados de
 historial, lista y perfiles (ahí están los datos de los usuarios), los campos del

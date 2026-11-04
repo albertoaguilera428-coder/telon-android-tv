@@ -15,7 +15,8 @@ algo que se nota en un WebView de televisor.
 
 ## Decisión
 
-Opción 2 (`js/auth.js`). El objeto `firebase` expone los mismos nombres que el SDK
+Opción 2 (`js/infra/firebase-auth.js`, con los casos de uso en `js/app/account-service.js`).
+El objeto `firebase` expone los mismos nombres que el SDK
 (`createUserWithEmailAndPassword`, `currentUser`, …).
 
 ## Consecuencias

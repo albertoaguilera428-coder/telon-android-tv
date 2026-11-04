@@ -21,7 +21,7 @@ dentro de un WebView. El código vivía en un solo `app.js` de unas 1.350 línea
 
 ## Decisión
 
-Opción 4. Un adaptador (`js/platform.js`) aísla lo que cambia entre sistemas: puente
+Opción 4. Un adaptador (`js/infra/platform.js`) aísla lo que cambia entre sistemas: puente
 de Android, teclas de Tizen y viewport. Para Samsung, `scripts/build-tizen.mjs` rebaja
 la sintaxis con esbuild (objetivo Chromium 69, Tizen 5.5) sin empaquetar los archivos.
 
