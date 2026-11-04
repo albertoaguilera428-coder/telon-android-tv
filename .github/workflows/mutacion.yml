@@ -4,8 +4,9 @@
 # De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 #
 # Stryker modifica la lógica de mayor riesgo y verifica que las pruebas lo noten. Tarda
-# varios minutos, por eso no corre en cada push. Falla si el puntaje baja del umbral
-# "break" de stryker.config.json.
+# un par de horas, por eso no corre en cada push a main: corre una vez por semana, a
+# demanda y en las ramas de mejora (mejora/...) cuando cambian código o pruebas. Falla si
+# el puntaje baja del umbral "break" de stryker.config.json.
 # ============================================================
 name: Mutación
 
@@ -13,6 +14,14 @@ on:
   schedule:
     - cron: '0 7 * * 1'
   workflow_dispatch:
+  push:
+    branches: ['mejora/**']
+    paths: ['web/js/**', 'test/**', 'stryker.config.json', '.github/workflows/mutacion.yml']
+
+# Si llega un push nuevo mientras corre, la corrida vieja ya no sirve: se cancela.
+concurrency:
+  group: mutacion-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -20,6 +29,8 @@ permissions:
 jobs:
   stryker:
     runs-on: ubuntu-latest
+    # Una corrida completa ronda las 2 o 3 horas; el tope evita que una colgada gaste minutos sin fin.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
