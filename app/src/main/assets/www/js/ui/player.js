@@ -17,14 +17,11 @@ hace cada botón en player-actions.js.
   const plataforma = Telon.infra.platform;
   const { resumePosition } = Telon.domain.progress;
   const { createPlaybackSession } = Telon.domain.playbackSession;
-  const { estado, preferencias, findAddon } = Telon.app.state;
+  const { estado, updateState, preferencias, findAddon } = Telon.app.state;
   const { fetchFullMeta } = Telon.app.catalogService;
   const playback = Telon.app.playbackService;
   const { $ } = Telon.ui.dom;
   const { toast } = Telon.ui.components;
-  const { renderDetail } = Telon.ui.detail;
-  const { homeBody } = Telon.ui.home;
-  const { render } = Telon.ui.screens;
   const { playerTemplateHTML, setCenter, setProgressBar, updatePlayerUI, playerSheet } = Telon.ui.playerView;
   const subtitulos = Telon.ui.playerSubtitles;
 
@@ -52,10 +49,11 @@ hace cada botón en player-actions.js.
     // Las reglas viven en la sesión (dominio); aquí solo queda el estado de la vista.
     const sesion = createPlaybackSession({ referencia, ficha, episodios, indice, subsActivos: preferencias.subtitlesEnabledFor(esNarto),
       lineaSubs: preferencias.subtitleLine(), tamanoSubs: preferencias.subtitleSize() });
-    const reproductor = estado.reproductor = {
+    const reproductor = {
       sesion, reanudarEn: 0, ultimoGuardado: 0, panel: null, deslizado: false, estadoCarga: 'loading', horizontal: !esNarto,
       temporizadores: new Set()
     };
+    updateState({ reproductor });
     plataforma.setOrientation(esNarto ? 'portrait' : 'landscape');
     const contenedor = $('#player');
     contenedor.hidden = false;
@@ -299,13 +297,11 @@ hace cada botón en player-actions.js.
     reproductor.video.pause();
     reproductor.video.removeAttribute('src');
     reproductor.video.load();
-    estado.reproductor = null;
     const contenedor = $('#player');
     contenedor.hidden = true;
     contenedor.innerHTML = '';
-    if (estado.detalle) renderDetail();
-    // El progreso cambió: refrescamos "Continuar viendo" o el historial si están a la vista.
-    if (estado.pestana === 'home') homeBody(); else if (estado.pestana === 'lib') render();
+    // Al quedar sin reproductor, main.js repinta la ficha y lo que haya debajo con el progreso nuevo.
+    updateState({ reproductor: null });
   }
 
   async function resume(clave) {
@@ -318,9 +314,7 @@ hace cada botón en player-actions.js.
     // Sin red, fetchFullMeta devuelve lo que quedó en el historial: alcanza para retomar el episodio.
     const { ficha, episodios } = await fetchFullMeta(referencia);
     const indice = clamp(entrada.idx, 0, episodios.length - 1);
-    estado.detalle = { referencia, cargando: false, ficha, episodios };
-    $('#detail').hidden = false;
-    renderDetail();
+    updateState({ detalle: { referencia, cargando: false, ficha, episodios } });
     openPlayer(referencia, ficha, episodios, indice);
   }
 

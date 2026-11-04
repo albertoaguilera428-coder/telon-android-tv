@@ -4,7 +4,8 @@ Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
 Último archivo en cargar: conecta los clics (data-act) con lo que hace cada pantalla,
-expone las funciones que llama el sistema (botón atrás, pausa) y arranca la app.
+decide qué se repinta cuando cambia el estado, expone las funciones que llama el
+sistema (botón atrás, pausa) y arranca la app.
 */
 (function (Telon) {
   'use strict';
@@ -13,7 +14,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   const { logIgnored } = Telon.infra.log;
   const { userMessageFor } = Telon.infra.errors;
   const { toggleFilterValue, FILTROS_VACIOS } = Telon.domain.catalog;
-  const { estado, perfiles, preferencias, clearHistory, clearLibrary, resetAllData } = Telon.app.state;
+  const { estado, updateState, subscribe, perfiles, preferencias, clearHistory, clearLibrary, resetAllData } = Telon.app.state;
   const catalogo = Telon.app.catalogService;
   const { $, COLORES_PERFIL } = Telon.ui.dom;
   const { toast, findCard } = Telon.ui.components;
@@ -30,6 +31,36 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   // Esperamos a que el usuario deje de escribir antes de consultar a todos los addons.
   const ESPERA_BUSQUEDA_MS = 350;
+  let temporizadorBusqueda = null;
+
+  // ============================================================
+  // QUÉ SE REPINTA CUANDO CAMBIA EL ESTADO
+  // ============================================================
+
+  // Cada clave del estado repinta solo lo que la muestra. Repintar de más no es gratis: en TV
+  // render() devuelve el foco a la pestaña y, con la ficha abierta, lo mandaría detrás de ella.
+  // urlNueva y consulta cambian con cada tecla y no repintan; el reproductor se pinta solo.
+  const CLAVES_PANTALLA = ['pestana', 'pantallaPerfiles', 'pestanaBiblioteca', 'busquedaAbierta', 'addons', 'instalando', 'errorInstalar', 'confirmarBorrado'];
+  const CLAVES_INICIO = ['filtros', 'filas', 'filasConError', 'cargando', 'filasBusqueda', 'buscando', 'consultaBuscada'];
+  const CLAVES_FICHA = ['detalle', 'temporadaDetalle'];
+  // La lista y el historial cambian cada pocos segundos mientras se reproduce: se repintan al cerrar.
+  const CLAVES_DATOS = ['biblioteca', 'historial'];
+
+  function repaintOnChange(cambiadas) {
+    const toca = claves => claves.some(clave => cambiadas.has(clave));
+    const sinReproductor = !estado.reproductor;
+    const cerroReproductor = cambiadas.has('reproductor') && sinReproductor;
+    const datosAlaVista = toca(CLAVES_DATOS) && sinReproductor;
+    let pintarFicha = toca(CLAVES_FICHA);
+
+    if (toca(CLAVES_PANTALLA)) render();
+    else if (datosAlaVista && !estado.detalle) render();
+    else if (cerroReproductor && estado.pestana === 'lib') render();
+    else if ((toca(CLAVES_INICIO) || cerroReproductor) && estado.pestana === 'home') homeBody();
+
+    if ((datosAlaVista || cerroReproductor) && estado.detalle) pintarFicha = true;
+    if (pintarFicha) renderDetail();
+  }
 
   // ============================================================
   // ADDONS
@@ -39,9 +70,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
     toast('Recargando addons…');
     // Si mientras tanto empezó otra recarga, esa se encarga de pintar: esta ya no aplica.
     if (!await catalogo.reloadDefaultAddons()) return;
-    estado.filas = null;
-    estado.filasBusqueda = null;
-    render();
+    updateState({ filas: null, filasBusqueda: null });
     loadHome();
     toast('Addons recargados');
   }
@@ -49,6 +78,9 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   // ============================================================
   // ACCIONES DE PERFIL
   // ============================================================
+
+  // Perfiles, preferencias y cuenta viven en repositorios (localStorage), no en el estado de la
+  // interfaz: después de cambiarlos se repinta a mano.
 
   function addProfile() {
     const nombre = prompt('Nombre del perfil:');
@@ -113,21 +145,14 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   function toggleAddon(base) {
     if (!catalogo.toggleAddon(base)) return;
-    estado.filas = null;
-    estado.filasBusqueda = null;
-    render();
+    updateState({ filas: null, filasBusqueda: null });
   }
 
   function deleteAddon(base) {
-    if (estado.confirmarBorrado === base) {
-      catalogo.removeAddon(base);
-      estado.filas = null;
-      estado.confirmarBorrado = null;
-      toast('Addon quitado');
-    } else {
-      estado.confirmarBorrado = base;
-    }
-    render();
+    if (estado.confirmarBorrado !== base) { updateState({ confirmarBorrado: base }); return; }
+    catalogo.removeAddon(base);
+    updateState({ filas: null, confirmarBorrado: null });
+    toast('Addon quitado');
   }
 
   function cycleQuality() {
@@ -141,13 +166,13 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   }
 
   function toggleSearch() {
-    estado.busquedaAbierta = !estado.busquedaAbierta;
-    if (!estado.busquedaAbierta) { estado.consulta = ''; estado.filasBusqueda = null; }
-    render();
-    if (estado.busquedaAbierta) $('#q').focus();
+    if (estado.busquedaAbierta) { closeSearch(); return; }
+    updateState({ busquedaAbierta: true });
+    $('#q').focus();
   }
 
-  const resetFilters = () => { estado.filtros = { ...FILTROS_VACIOS }; };
+  const closeSearch = () => updateState({ busquedaAbierta: false, consulta: '', consultaBuscada: '', filasBusqueda: null });
+  const setFilter = cambios => updateState({ filtros: { ...estado.filtros, ...cambios } });
 
   // ============================================================
   // TABLA DE ACCIONES (data-act="accion:argumento")
@@ -155,38 +180,37 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   const ACCIONES = {
     tab: argumento => { if ($('#detail') && !$('#detail').hidden) closeDetail(); setTab(argumento); },
-    filter: argumento => { estado.filtros = { ...estado.filtros, pais: argumento }; homeBody(); },
-    ftype: argumento => { estado.filtros = { ...estado.filtros, tipo: toggleFilterValue(estado.filtros.tipo, argumento) }; homeBody(); },
-    fgenre: argumento => { estado.filtros = { ...estado.filtros, genero: toggleFilterValue(estado.filtros.genero, argumento) }; homeBody(); },
-    filterreset: () => { resetFilters(); homeBody(); },
+    filter: argumento => setFilter({ pais: argumento }),
+    ftype: argumento => setFilter({ tipo: toggleFilterValue(estado.filtros.tipo, argumento) }),
+    fgenre: argumento => setFilter({ genero: toggleFilterValue(estado.filtros.genero, argumento) }),
+    filterreset: () => updateState({ filtros: { ...FILTROS_VACIOS } }),
     pickprofile: argumento => {
       perfiles.setActive(argumento);
-      estado.pantallaPerfiles = false;
-      render();
+      updateState({ pantallaPerfiles: false });
       if (!estado.filas && estado.addons.length) loadHome();
     },
     addprofile: addProfile,
-    showprofiles: () => { estado.pantallaPerfiles = true; render(); },
+    showprofiles: () => updateState({ pantallaPerfiles: true }),
     editprofileimg: editProfileImage,
     manageprofiles: manageProfiles,
-    refresh: () => { estado.filas = null; loadHome(); },
+    refresh: () => { updateState({ filas: null }); loadHome(); },
     reloadaddons: () => reloadAddons(),
     search: toggleSearch,
     open: (argumento, boton) => { const referencia = findCard(boton.dataset.k); if (referencia) openDetail(referencia); },
     closedetail: () => closeDetail(),
-    season: argumento => { estado.temporadaDetalle = +argumento; renderDetail(); },
-    savelib: () => { toggleLib(estado.detalle.referencia); renderDetail(); },
+    season: argumento => updateState({ temporadaDetalle: +argumento }),
+    savelib: () => toggleLib(estado.detalle.referencia),
     play: argumento => { const d = estado.detalle; if (d && !d.cargando) openPlayer(d.referencia, d.ficha, d.episodios, +argumento); },
     resume: (argumento, boton) => resume(boton.dataset.k),
-    libtab: argumento => { estado.pestanaBiblioteca = argumento; render(); },
+    libtab: argumento => updateState({ pestanaBiblioteca: argumento }),
     install: () => install(),
     toggle: toggleAddon,
     del: deleteAddon,
     togglesubs: () => { preferencias.toggleAutoSubs(); render(); },
     togglenartosubs: () => { preferencias.toggleNartoSubs(); render(); },
     setquality: cycleQuality,
-    clearhist: () => confirmAndRun('¿Borrar todo el historial?', () => { clearHistory(); toast('Historial borrado'); render(); }),
-    clearlib: () => confirmAndRun('¿Vaciar tu lista?', () => { clearLibrary(); toast('Lista vaciada'); render(); }),
+    clearhist: () => confirmAndRun('¿Borrar todo el historial?', () => { clearHistory(); toast('Historial borrado'); }),
+    clearlib: () => confirmAndRun('¿Vaciar tu lista?', () => { clearLibrary(); toast('Lista vaciada'); }),
     clearall: () => confirmAndRun('¿Restablecer todo? Se borran perfiles, historial, lista y addons.', () => { resetAllData(); location.reload(); }),
     register: cuenta.registerAccount,
     emaillogin: cuenta.loginWithEmail,
@@ -205,11 +229,11 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   }
 
   function handleInput(evento) {
-    if (evento.target.id === 'addurl') estado.urlNueva = evento.target.value;
+    if (evento.target.id === 'addurl') updateState({ urlNueva: evento.target.value });
     if (evento.target.id === 'q') {
-      estado.consulta = evento.target.value;
-      clearTimeout(estado._temporizadorBusqueda);
-      estado._temporizadorBusqueda = setTimeout(runSearch, ESPERA_BUSQUEDA_MS);
+      updateState({ consulta: evento.target.value });
+      clearTimeout(temporizadorBusqueda);
+      temporizadorBusqueda = setTimeout(runSearch, ESPERA_BUSQUEDA_MS);
     }
   }
 
@@ -219,10 +243,10 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   // Botón atrás: cierra lo que esté más arriba. Devuelve false si no queda nada y hay que salir.
   function handleBack() {
-    if (estado.pantallaPerfiles && perfiles.active()) { estado.pantallaPerfiles = false; render(); return true; }
+    if (estado.pantallaPerfiles && perfiles.active()) { updateState({ pantallaPerfiles: false }); return true; }
     if (estado.reproductor) { if (estado.reproductor.panel) playerSheet(null); else closePlayer(); return true; }
     if (estado.detalle) { closeDetail(); return true; }
-    if (estado.busquedaAbierta) { estado.busquedaAbierta = false; estado.consulta = ''; estado.filasBusqueda = null; render(); return true; }
+    if (estado.busquedaAbierta) { closeSearch(); return true; }
     if (estado.pestana !== 'home') { setTab('home'); return true; }
     return false;
   }
@@ -268,6 +292,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   window.__telon = estado; // Para inspeccionar el estado desde chrome://inspect mientras depuramos.
 
   if (plataforma.esTv) document.body.classList.add('tv');
+  subscribe(repaintOnChange);
   render();
   reloadAddons();
   Telon.ui.updateBanner.checkForUpdate();

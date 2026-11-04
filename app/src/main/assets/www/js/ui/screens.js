@@ -14,7 +14,7 @@ pestaña activa y arma la barra de navegación.
   const { userMessageFor } = Telon.infra.errors;
   const { listResourceNames } = Telon.domain.catalog;
   const { progressPercent, sortByRecent } = Telon.domain.progress;
-  const { estado, perfiles, preferencias, sesion } = Telon.app.state;
+  const { estado, updateState, perfiles, preferencias, sesion } = Telon.app.state;
   const { installAddon } = Telon.app.catalogService;
   const { toast, registerCard, clearCards, posterHTML, pfAvatarHTML } = Telon.ui.components;
   const { homeHTML, homeBody, loadHome } = Telon.ui.home;
@@ -73,20 +73,14 @@ pestaña activa y arma la barra de navegación.
 
   async function install() {
     if (!estado.urlNueva.trim()) return;
-    estado.instalando = true;
-    estado.errorInstalar = '';
-    render();
+    updateState({ instalando: true, errorInstalar: '' });
     try {
       const manifest = await installAddon(estado.urlNueva);
-      estado.urlNueva = '';
-      estado.filas = null;
-      estado.filasBusqueda = null;
       if (manifest) toast('Instalado: ' + manifest.name);
+      updateState({ urlNueva: '', filas: null, filasBusqueda: null, instalando: false });
     } catch (error) {
-      estado.errorInstalar = 'No se pudo instalar: ' + userMessageFor(error) + '. Revisa el enlace y que el servidor esté encendido.';
+      updateState({ errorInstalar: 'No se pudo instalar: ' + userMessageFor(error) + '. Revisa el enlace y que el servidor esté encendido.', instalando: false });
     }
-    estado.instalando = false;
-    render();
   }
 
   // ============================================================
@@ -227,9 +221,7 @@ pestaña activa y arma la barra de navegación.
   }
 
   function setTab(pestana) {
-    estado.pestana = pestana;
-    estado.confirmarBorrado = null;
-    render();
+    updateState({ pestana, confirmarBorrado: null });
     if (pestana === 'home' && estado.filas === null && estado.addons.length && !estado.cargando) loadHome();
   }
 

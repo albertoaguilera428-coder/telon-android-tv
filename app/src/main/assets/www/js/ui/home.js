@@ -14,7 +14,7 @@ los catálogos que declaran soportarla.
   const { getCountryCode, getCountryLabel } = Telon.domain.countries;
   const { collectFilterOptions, resetStaleFilters, applyFilters, hasActiveFilters } = Telon.domain.catalog;
   const { progressPercent, continueWatching } = Telon.domain.progress;
-  const { estado, perfiles } = Telon.app.state;
+  const { estado, updateState, perfiles } = Telon.app.state;
   const { loadCatalogs, searchCatalogs } = Telon.app.catalogService;
   const { registerCard, spinnerHTML, skeletonHomeHTML, posterHTML, cardHTML, emptyAddonsHTML, miniAvatarHTML } = Telon.ui.components;
   const ICONOS = Telon.ui.ICONOS;
@@ -116,15 +116,17 @@ los catálogos que declaran soportarla.
     const contenedor = $('#homeBody');
     if (!contenedor) return;
     if (!estado.addons.length) { contenedor.innerHTML = emptyAddonsHTML(); return; }
-    if (estado.busquedaAbierta && estado.consulta.trim()) { contenedor.innerHTML = searchHTML(); return; }
+    if (estado.busquedaAbierta && estado.consultaBuscada) { contenedor.innerHTML = searchHTML(); return; }
     if (estado.cargando && !estado.filas) { contenedor.innerHTML = skeletonHomeHTML('Cargando'); return; }
     const filas = estado.filas || [];
     if (!filas.length) { contenedor.innerHTML = noCatalogsHTML(); return; }
     const opciones = collectFilterOptions(filas);
-    estado.filtros = resetStaleFilters(estado.filtros, opciones);
-    const visibles = applyFilters(filas, estado.filtros);
+    // Un filtro que ya no existe en los catálogos cargados se ignora al pintar (sin tocar el estado:
+    // pintar nunca cambia el estado, si no cada repintado provocaría otro).
+    const filtros = resetStaleFilters(estado.filtros, opciones);
+    const visibles = applyFilters(filas, filtros);
     const avisoErrores = estado.filasConError ? `<p class="hint con-margen">${estado.filasConError} catálogo(s) no respondieron.</p>` : '';
-    contenedor.innerHTML = filterChipsHTML(opciones, estado.filtros) + heroHTML(visibles) + continueWatchingHTML() + catalogSectionsHTML(visibles) + avisoErrores;
+    contenedor.innerHTML = filterChipsHTML(opciones, filtros) + heroHTML(visibles) + continueWatchingHTML() + catalogSectionsHTML(visibles) + avisoErrores;
   }
 
   // ============================================================
@@ -138,21 +140,17 @@ los catálogos que declaran soportarla.
 
   async function loadHome() {
     const secuencia = ++secuenciaCarga;
-    estado.cargando = true;
-    estado.filasConError = 0;
-    if (estado.pestana === 'home') homeBody();
+    // Cambiar estas claves repinta el cuerpo del inicio si está a la vista (main.js está suscrito).
+    updateState({ cargando: true, filasConError: 0 });
     const { filas, errores } = await loadCatalogs();
     if (secuencia !== secuenciaCarga) return;
-    estado.filas = filas;
-    estado.filasConError = errores;
-    estado.cargando = false;
-    if (estado.pestana === 'home') homeBody();
+    updateState({ filas, filasConError: errores, cargando: false });
   }
 
   function searchHTML() {
     if (estado.buscando) return spinnerHTML('Buscando');
     const filas = estado.filasBusqueda || [];
-    if (!filas.length) return `<div class="empty"><h3>Sin resultados</h3><p>Ningún addon devolvió resultados para «${escapeHTML(estado.consulta)}». Solo buscan los catálogos que declaran soporte de búsqueda.</p></div>`;
+    if (!filas.length) return `<div class="empty"><h3>Sin resultados</h3><p>Ningún addon devolvió resultados para «${escapeHTML(estado.consultaBuscada)}». Solo buscan los catálogos que declaran soporte de búsqueda.</p></div>`;
     return filas.map(catalogSectionHTML).join('');
   }
 
@@ -163,14 +161,11 @@ los catálogos que declaran soportarla.
   async function runSearch() {
     const consulta = estado.consulta.trim();
     const secuencia = ++secuenciaBusqueda;
-    if (!consulta) { estado.filasBusqueda = null; homeBody(); return; }
-    estado.buscando = true;
-    homeBody();
+    if (!consulta) { updateState({ consultaBuscada: '', filasBusqueda: null, buscando: false }); return; }
+    updateState({ consultaBuscada: consulta, buscando: true });
     const resultados = await searchCatalogs(consulta);
     if (secuencia !== secuenciaBusqueda) return;
-    estado.filasBusqueda = resultados;
-    estado.buscando = false;
-    homeBody();
+    updateState({ filasBusqueda: resultados, buscando: false });
   }
 
   Telon.ui.home = { homeHTML, homeBody, loadHome, runSearch };

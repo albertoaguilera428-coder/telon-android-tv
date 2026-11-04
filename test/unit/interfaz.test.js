@@ -56,7 +56,7 @@ test('propiedad: el candidato elegido siempre está en la dirección pedida', ()
 
 test('sin duración (transmisión en vivo) retroceder y adelantar mueven 10 s sin saltar al inicio', () => {
   const video = { currentTime: 95, duration: NaN, pause() {}, play: () => Promise.resolve() };
-  app.Telon.app.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
+  app.Telon.app.state.updateState({ reproductor: { video, indice: 0, episodios: [{ id: 'a' }] } });
   tvRemote.handleTvKey(tvRemote.TECLA.RETROCEDER);
   assert.equal(video.currentTime, 85);
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
@@ -64,15 +64,15 @@ test('sin duración (transmisión en vivo) retroceder y adelantar mueven 10 s si
   video.duration = Infinity;
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
   assert.equal(video.currentTime, 105);
-  app.Telon.app.state.estado.reproductor = null;
+  app.Telon.app.state.updateState({ reproductor: null });
 });
 
 test('con duración conocida, adelantar no pasa del final', () => {
   const video = { currentTime: 95, duration: 100, pause() {}, play: () => Promise.resolve() };
-  app.Telon.app.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
+  app.Telon.app.state.updateState({ reproductor: { video, indice: 0, episodios: [{ id: 'a' }] } });
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
   assert.equal(video.currentTime, 100);
-  app.Telon.app.state.estado.reproductor = null;
+  app.Telon.app.state.updateState({ reproductor: null });
 });
 
 // ============================================================

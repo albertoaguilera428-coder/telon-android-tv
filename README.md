@@ -89,16 +89,19 @@ clásicos que comparten `window.Telon`; el orden está en `index.html`.
 - *Registro de addons virtuales*: cada sitio se registra en `infra/addon-client.js` y responde
   como un addon (abierto a agregar sitios sin tocar el cliente).
 - *Facade*: los servicios de `app/` esconden protocolo, sitios y almacenamiento a las pantallas.
+- *Observer*: el estado solo cambia con `updateState` y avisa a `main.js`, que repinta lo que
+  corresponde a cada clave ([0006](docs/decisiones/0006-estado-con-suscripciones.md)).
 
-No se usan Singleton (las dependencias se toman explícitas del espacio de nombres), State
-(el reproductor tiene tres estados simples) ni Observer (no hay suscriptores múltiples).
+No se usan Singleton (las dependencias se toman explícitas del espacio de nombres) ni State
+(el reproductor tiene tres estados simples).
 
 Las decisiones difíciles de revertir están en [docs/decisiones/](docs/decisiones/):
 [0001](docs/decisiones/0001-una-app-web-para-android-y-samsung.md) una app web para Android
 y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md) Firebase por REST,
 [0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia del release,
 [0004](docs/decisiones/0004-sin-kafka-ni-broker-de-eventos.md) sin Kafka ni broker de eventos,
-[0005](docs/decisiones/0005-arquitectura-en-capas.md) arquitectura en capas.
+[0005](docs/decisiones/0005-arquitectura-en-capas.md) arquitectura en capas,
+[0006](docs/decisiones/0006-estado-con-suscripciones.md) estado con suscripciones.
 
 **Cómo está escrito el código** (guía, secciones 21 a 24):
 

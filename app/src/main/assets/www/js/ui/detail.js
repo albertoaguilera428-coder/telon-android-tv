@@ -12,7 +12,7 @@ guardar en la lista y la grilla de episodios por temporada.
   const { $, escapeHTML, toneClass, cssUrl } = Telon.ui.dom;
   const { getCountryCode } = Telon.domain.countries;
   const { episodeLabel, episodeNumber, listSeasons, episodesInSeason } = Telon.domain.episodes;
-  const { estado, refKey, isInLibrary, toggleLibrary } = Telon.app.state;
+  const { estado, updateState, refKey, isInLibrary, toggleLibrary } = Telon.app.state;
   const { prepareTitle, fetchFullMeta, warmUpSources } = Telon.app.catalogService;
   const { toast, skeletonDetailHTML, posterHTML } = Telon.ui.components;
   const ICONOS = Telon.ui.ICONOS;
@@ -24,15 +24,12 @@ guardar en la lista y la grilla de episodios por temporada.
   // Pinta enseguida con lo que ya sabemos (nombre y póster de la tarjeta) y completa al llegar la ficha.
   async function openDetail(referencia) {
     prepareTitle(referencia);
-    estado.detalle = { referencia, cargando: true, ficha: null, episodios: [] };
-    estado.temporadaDetalle = null;
-    $('#detail').hidden = false;
-    renderDetail();
+    // Cada cambio de estado.detalle repinta la ficha (main.js está suscrito).
+    updateState({ detalle: { referencia, cargando: true, ficha: null, episodios: [] }, temporadaDetalle: null });
     const { ficha, episodios, aviso } = await fetchFullMeta(referencia);
     // El usuario pudo cerrar o abrir otra ficha mientras esperábamos; esta respuesta ya no aplica.
     if (!estado.detalle || estado.detalle.referencia !== referencia) return;
-    estado.detalle = { referencia, cargando: false, ficha, episodios, aviso };
-    renderDetail();
+    updateState({ detalle: { referencia, cargando: false, ficha, episodios, aviso } });
     warmUpSources(referencia, ficha);
   }
 
@@ -74,6 +71,7 @@ guardar en la lista y la grilla de episodios por temporada.
   function renderDetail() {
     const detalle = estado.detalle, contenedor = $('#detail');
     if (!detalle) { contenedor.hidden = true; contenedor.innerHTML = ''; return; }
+    contenedor.hidden = false;
     const ficha = detalle.ficha || detalle.referencia, fondo = cssUrl(ficha.background || ficha.poster);
     const variableImagen = fondo ? ` style="--imagen:${escapeHTML(fondo)}"` : '';
     contenedor.innerHTML = `<div class="dhero ${toneClass(ficha.name)}"${variableImagen}><span class="hero-ambiente"></span><span class="hero-arte"></span><button class="iconbtn" data-act="closedetail" aria-label="Volver">${ICONOS.back}</button></div>
@@ -81,9 +79,7 @@ guardar en la lista y la grilla de episodios por temporada.
   }
 
   function closeDetail() {
-    estado.detalle = null;
-    $('#detail').hidden = true;
-    $('#detail').innerHTML = '';
+    updateState({ detalle: null });
   }
 
   // ============================================================

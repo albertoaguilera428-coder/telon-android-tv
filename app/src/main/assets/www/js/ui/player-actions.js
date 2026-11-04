@@ -9,7 +9,7 @@ de if: agregar un botón es agregar una entrada.
 (function (Telon) {
   'use strict';
 
-  const { estado, preferencias } = Telon.app.state;
+  const { estado, updateState, preferencias } = Telon.app.state;
   const { $ } = Telon.ui.dom;
   const { toggleLib } = Telon.ui.detail;
   const { updatePlayerUI, playerSheet } = Telon.ui.playerView;
@@ -71,7 +71,7 @@ de if: agregar un botón es agregar una entrada.
     eps: () => playerSheet('eps'),
     sources: () => playerSheet('src'),
     closesheet: () => playerSheet(null),
-    pseason: (reproductor, argumento) => { estado.temporadaReproductor = +argumento; playerSheet('eps'); },
+    pseason: (reproductor, argumento) => { updateState({ temporadaReproductor: +argumento }); playerSheet('eps'); },
     ep: (reproductor, argumento) => {
       playerSheet(null);
       if (+argumento === reproductor.sesion.indice) return;

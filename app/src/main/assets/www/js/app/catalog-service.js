@@ -15,7 +15,13 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
   const { getJSON, normalizeBase, buildAddonUrl, clearVirtualCaches } = Telon.infra.addonClient;
   const { needsExtra, supportsSearch, keepValidMetas } = Telon.domain.catalog;
   const { buildEpisodeList } = Telon.domain.episodes;
-  const { estado, getEnabledAddons, findAddon, saveAddons } = Telon.app.state;
+  const { estado, updateState, getEnabledAddons, findAddon, saveAddons } = Telon.app.state;
+
+  // Cambia la lista de addons y la guarda en el dispositivo.
+  function setAddons(lista) {
+    updateState({ addons: lista });
+    saveAddons();
+  }
 
   // ============================================================
   // ADDONS
@@ -37,9 +43,8 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
     if (secuencia !== secuenciaRecarga) return false;
     resultados.filter(r => r.status === 'rejected').forEach(r => logIgnored('Un addon predeterminado no respondió', r.reason));
     const remotos = resultados.filter(r => r.status === 'fulfilled').map(r => r.value);
-    estado.addons = [Telon.infra.sololatino.ADDON_SOLOLATINO, ...remotos, Telon.infra.narto.ADDON_NARTO];
-    // También limpia el valor viejo que guardaba los addons virtuales con sus cachés.
-    saveAddons();
+    // Guardar también limpia el valor viejo que tenía los addons virtuales con sus cachés.
+    setAddons([Telon.infra.sololatino.ADDON_SOLOLATINO, ...remotos, Telon.infra.narto.ADDON_NARTO]);
     return true;
   }
 
@@ -51,8 +56,7 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
     if (!manifest || !manifest.id || !manifest.name) throw new InvalidDataError('el manifest no tiene «id» o «name»');
     const registro = { base, manifest, enabled: true };
     const esElMismo = a => a.base === base || a.manifest.id === manifest.id;
-    estado.addons = estado.addons.some(esElMismo) ? estado.addons.map(a => (esElMismo(a) ? registro : a)) : [...estado.addons, registro];
-    saveAddons();
+    setAddons(estado.addons.some(esElMismo) ? estado.addons.map(a => (esElMismo(a) ? registro : a)) : [...estado.addons, registro]);
     return manifest;
   }
 
@@ -60,14 +64,12 @@ y el estado. No pinta nada: devuelve datos y las pantallas deciden cómo mostrar
   // modificarlos dejaba a SoloLatino desactivado aunque se recargaran los addons.
   function toggleAddon(base) {
     if (!findAddon(base)) return false;
-    estado.addons = estado.addons.map(a => (a.base === base ? { ...a, enabled: !a.enabled } : a));
-    saveAddons();
+    setAddons(estado.addons.map(a => (a.base === base ? { ...a, enabled: !a.enabled } : a)));
     return true;
   }
 
   function removeAddon(base) {
-    estado.addons = estado.addons.filter(a => a.base !== base);
-    saveAddons();
+    setAddons(estado.addons.filter(a => a.base !== base));
   }
 
   // ============================================================

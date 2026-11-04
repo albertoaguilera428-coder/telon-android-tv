@@ -6,6 +6,10 @@ De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de soft
 Un solo objeto de estado para la interfaz y un repositorio por cada cosa que se guarda
 en el dispositivo (perfiles, preferencias, sesión, lista, historial, addons). Las
 pantallas nunca tocan localStorage: piden y guardan a través de estos repositorios.
+
+El estado se lee como estado.x pero solo cambia con updateState({ x }): así cada cambio
+pasa por un solo lugar y avisa a quien se suscribió (main.js repinta lo que corresponde).
+Escribir estado.x = … directamente lanza un error.
 Las claves y la forma de lo guardado no se cambian a la ligera: ahí están los datos de
 los usuarios.
 */
@@ -89,8 +93,10 @@ los usuarios.
   // ESTADO DE LA INTERFAZ
   // ============================================================
 
-  const estado = {
-    pestana: 'home', filtros: { ...FILTROS_VACIOS }, pestanaBiblioteca: 'list', busquedaAbierta: false, consulta: '',
+  const estadoInterno = {
+    pestana: 'home', filtros: { ...FILTROS_VACIOS }, pestanaBiblioteca: 'list', busquedaAbierta: false,
+    consulta: '', // Lo que hay escrito en el buscador (cambia con cada tecla, no repinta).
+    consultaBuscada: '', // La consulta cuyos resultados se muestran.
     pantallaPerfiles: !perfiles.all().length,
     addons: [], // Los llena reloadDefaultAddons(): la lista viene fija en el código.
     biblioteca: store.get('lib', []), // Guardada con los campos del protocolo Stremio: [{ base, type, id, name, poster, country }]
@@ -101,6 +107,26 @@ los usuarios.
     detalle: null, reproductor: null,
     temporadaDetalle: null, temporadaReproductor: null
   };
+
+  const oyentes = new Set();
+
+  // Aplica los cambios y avisa una sola vez con las claves que de verdad cambiaron (mismo valor =
+  // sin aviso). Los oyentes se llaman en el momento: quien cambia el estado ve la pantalla al día.
+  function updateState(cambios) {
+    const cambiadas = Object.keys(cambios).filter(clave => estadoInterno[clave] !== cambios[clave]);
+    if (!cambiadas.length) return;
+    cambiadas.forEach(clave => { estadoInterno[clave] = cambios[clave]; });
+    const claves = new Set(cambiadas);
+    oyentes.forEach(oyente => oyente(claves));
+  }
+
+  function subscribe(oyente) {
+    oyentes.add(oyente);
+    return () => oyentes.delete(oyente);
+  }
+
+  const rechazarEscritura = (_, clave) => { throw new TypeError(`El estado solo cambia con updateState({ ${String(clave)}: … })`); };
+  const estado = new Proxy(estadoInterno, { set: rechazarEscritura, deleteProperty: rechazarEscritura, defineProperty: rechazarEscritura });
 
   // ============================================================
   // ADDONS
@@ -127,35 +153,35 @@ los usuarios.
   function toggleLibrary(referencia, ficha = {}) {
     const clave = refKey(referencia);
     const yaEstaba = estado.biblioteca.some(x => refKey(x) === clave);
-    estado.biblioteca = yaEstaba
+    const biblioteca = yaEstaba
       ? estado.biblioteca.filter(x => refKey(x) !== clave)
       : [...estado.biblioteca, { base: referencia.base, type: referencia.type, id: referencia.id, name: ficha.name || referencia.name, poster: ficha.poster || referencia.poster, country: referencia.country }];
-    store.set('lib', estado.biblioteca);
+    store.set('lib', biblioteca);
+    updateState({ biblioteca });
     return !yaEstaba;
   }
 
   function clearLibrary() {
-    estado.biblioteca = [];
-    store.set('lib', estado.biblioteca);
+    store.set('lib', []);
+    updateState({ biblioteca: [] });
   }
 
-  function saveHistory() {
-    estado.historial = trimHistory(estado.historial);
-    store.set('hist', estado.historial);
+  function saveHistory(historial) {
+    const recortado = trimHistory(historial);
+    store.set('hist', recortado);
+    updateState({ historial: recortado });
   }
 
   function recordProgress(entrada) {
-    estado.historial = { ...estado.historial, [entrada.key]: entrada };
-    saveHistory();
+    saveHistory({ ...estado.historial, [entrada.key]: entrada });
   }
 
   function clearHistory() {
-    estado.historial = {};
-    saveHistory();
+    saveHistory({});
   }
 
   const resetAllData = () => store.clearAll();
 
   Telon.app = Telon.app || {};
-  Telon.app.state = { perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
+  Telon.app.state = { perfiles, preferencias, sesion, estado, updateState, subscribe, refKey, getEnabledAddons, findAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
 })(window.Telon = window.Telon || {});

@@ -77,10 +77,10 @@ test('una petición sin respuesta se corta por tiempo y libera su turno', async 
 
 test('si se carga el inicio dos veces, la respuesta vieja no pisa a la nueva (ni su contador de errores)', async () => {
   const app = loadApp({ hasta: 'js/ui/update-banner.js' });
-  const { estado } = app.Telon.app.state;
+  const { estado, updateState } = app.Telon.app.state;
   const { loadHome } = app.Telon.ui.home;
   const red = manualNetwork(app);
-  estado.addons = [{ base: 'https://a.x', enabled: true, manifest: { resources: ['catalog'], catalogs: [{ type: 'series', id: 'top' }] } }];
+  updateState({ addons: [{ base: 'https://a.x', enabled: true, manifest: { resources: ['catalog'], catalogs: [{ type: 'series', id: 'top' }] } }] });
   const primera = loadHome();
   await tick();
   const segunda = loadHome();

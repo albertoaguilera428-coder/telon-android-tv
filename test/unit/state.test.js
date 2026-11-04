@@ -36,11 +36,11 @@ test('propiedad: trimHistory nunca supera el máximo y conserva las entradas má
 
 test('saveAddons no guarda los addons virtuales ni sus cachés', () => {
   const app = loadApp({ hasta: 'js/app/state.js' });
-  const { estado, saveAddons } = app.Telon.app.state;
-  estado.addons = [
+  const { updateState, saveAddons } = app.Telon.app.state;
+  updateState({ addons: [
     { base: '__sololatino__', manifest: { id: 'sl' }, enabled: true, _cache: { pagina: '<html>…</html>' } },
     { base: 'https://a.x', manifest: { id: 'a' }, enabled: false, _extra: 'no se guarda' }
-  ];
+  ] });
   saveAddons();
   assert.deepEqual(JSON.parse(app.window.localStorage.getItem('telon.addons')), [{ base: 'https://a.x', manifest: { id: 'a' }, enabled: false }]);
   app.close();
