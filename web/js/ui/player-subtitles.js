@@ -96,7 +96,7 @@ function applyCueStyle(reproductor) {
   estiloSubs.textContent = `#player video::cue{font-size:${tamano}px!important;line-height:${tamano + 8}px!important}`;
 }
 
-// Aviso breve en el centro ("▲ Posición", "24px Tamaño") para que el cambio se note aunque no haya
+// Aviso breve en el centro (una flecha y "Posición", o "24px" y "Tamaño") para que el cambio se note aunque no haya
 // un subtítulo en pantalla en ese momento.
 let temporizadorAviso;
 function flashSubtitleHint(valor, etiqueta) {

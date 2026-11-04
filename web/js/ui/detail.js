@@ -47,7 +47,7 @@ function episodesHTML(detalle, entradaHistorial) {
     const numero = escapeHTML(episodeNumber(episodio, i));
     return `<button class="ep ${entradaHistorial && entradaHistorial.idx === i ? 'seen' : ''}" data-act="play:${i}" aria-label="Episodio ${numero}">${numero}</button>`;
   }).join('');
-  return `<section class="d-episodios"><h3 class="subtitulo">Episodios</h3>${chipsTemporada}<div class="eps">${botones}</div></section>`;
+  return `<section class="d-episodios"><h2 class="subtitulo">Episodios</h2>${chipsTemporada}<div class="eps">${botones}</div></section>`;
 }
 
 function detailBodyHTML(detalle, ficha) {

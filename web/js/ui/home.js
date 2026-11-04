@@ -25,8 +25,6 @@ import { ICONOS } from './icons.js';
 const ETIQUETAS_TIPO = { series: 'Series', movie: 'Películas', short: 'Cortos' };
 const MAXIMO_CHIPS_GENERO = 12;
 const ID_SOLOLATINO = 'app.telon.sololatino';
-// Encabezados de grupo más amigables que el nombre técnico de cada addon virtual.
-const ETIQUETAS_GRUPO = { 'app.telon.sololatino': 'Series', 'app.telon.nartodrama': 'Dramas Cortos' };
 
 // ============================================================
 // ESQUELETO
@@ -66,13 +64,13 @@ function heroHTML(visibles) {
   const pais = getCountryCode(primero);
   const clave = registerCard({ base: addon.base, type: primero.type || visibles[0].cat.type, id: primero.id, name: primero.name, poster: primero.poster, country: pais });
   const imagenFondo = cssUrl(primero.background || primero.poster);
-  const subtitulo = [(primero.genres || []).slice(0, 2).join(' · '), addon.manifest.name].filter(Boolean).join(' · ');
+  // Sin etiqueta "Destacado" encima del título: el tamaño ya dice que es lo destacado.
+  const subtitulo = [pais && getCountryLabel(pais), (primero.genres || []).slice(0, 2).join(' · '), addon.manifest.name].filter(Boolean).join(' · ');
   // La imagen viaja como variable CSS: style.css la usa en las dos capas (ambiente y arte).
   const variableImagen = imagenFondo ? ` style="--imagen:${escapeHTML(imagenFondo)}"` : '';
   return `<button class="hero ${toneClass(primero.name)}" data-act="open" data-k="${escapeHTML(clave)}"${variableImagen}>
     <span class="hero-ambiente"></span><span class="hero-arte"></span>
-    <span class="hero-texto"><span class="badge">Destacado${pais ? ' · ' + escapeHTML(pais) : ''}</span>
-    <span class="hero-titulo">${escapeHTML(primero.name)}</span><span class="herosub">${escapeHTML(subtitulo)}</span>
+    <span class="hero-texto"><span class="hero-titulo">${escapeHTML(primero.name)}</span><span class="herosub">${escapeHTML(subtitulo)}</span>
     <span class="hero-acciones"><span class="playfab">${ICONOS.play}Ver ahora</span></span></span></button>`;
 }
 
@@ -92,19 +90,8 @@ function catalogSectionHTML(fila) {
   return `<div class="section"><h2>${escapeHTML(fila.cat.name || fila.cat.id)}</h2><span class="sub">${escapeHTML(fila.addon.manifest.name)}</span><div class="${enFila ? 'row' : 'grid3'}">${fila.metas.map(m => cardHTML(fila.addon, fila.cat.type, m)).join('')}</div></div>`;
 }
 
-// Cada vez que cambia el addon ponemos un encabezado de grupo para separar de dónde viene el contenido.
-function catalogSectionsHTML(visibles) {
-  let ultimoIdAddon = '';
-  return visibles.map(fila => {
-    const idAddon = fila.addon.manifest.id;
-    let encabezado = '';
-    if (idAddon !== ultimoIdAddon) {
-      ultimoIdAddon = idAddon;
-      encabezado = `<div class="grupo"><span>${escapeHTML(ETIQUETAS_GRUPO[idAddon] || fila.addon.manifest.name)}</span></div>`;
-    }
-    return encabezado + catalogSectionHTML(fila);
-  }).join('');
-}
+// De dónde viene cada sección lo dice su subtítulo (el nombre del addon), sin etiquetas encima.
+const catalogSectionsHTML = visibles => visibles.map(catalogSectionHTML).join('');
 
 function noCatalogsHTML() {
   const motivo = estado.filasConError ? 'Los addons no respondieron.' : 'Tus addons activos no ofrecen catálogos.';

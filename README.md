@@ -190,18 +190,26 @@ protocolo Stremio y los nombres del puente (`TelonBridge`, `window._tvKey`,
 
 ## Diseño
 
-Estilo "vibrante", definido en `style.css` con variables (`--fondo`, `--degradado`,
-`--radio`…):
+Estilo "telón": un teatro a oscuras, definido en `style.css` con variables (`--fondo`,
+`--acento`, `--oro`, `--radio`…):
 
-- Base violeta muy oscura y degradado de marca rosa → violeta → cian.
-- Títulos en **Unbounded** y texto en **Plus Jakarta Sans**. Las dos van dentro de la app
-  (`fonts/`, licencia OFL incluida), porque la TV puede no tener internet y la CSP solo
-  permite fuentes propias.
-- Los pósters sin imagen usan uno de 6 degradados (`.tono-0` a `.tono-5`), elegido por el
-  título (`toneFor`).
+- Negro cálido de sala; **carmesí** de terciopelo para las acciones (reproducir, guardar) y
+  **oro** de reflector para lo elegido (filtro, pestaña, temporada) y para el foco en TV.
+  Colores sólidos: todo texto cumple contraste AA (el más justo, blanco sobre carmesí,
+  da 6:1).
+- Títulos en **Unbounded** y texto en **Atkinson Hyperlegible Next**, hecha para leerse
+  bien a distancia. Las dos van dentro de la app (`fonts/`, licencia OFL incluida), porque
+  la TV puede no tener internet y la CSP solo permite fuentes propias.
+- Sin degradados en el texto, sin halos de color (las sombras caen) y sin etiquetas encima
+  de los títulos. Los íconos son SVG dibujados, nunca símbolos de texto.
+- Los pósters sin imagen usan uno de 6 tonos de sala (`.tono-0` a `.tono-5`), elegido por
+  el título (`toneFor`).
 - El destacado tiñe todo su bloque con los colores del póster: dos capas con la misma
   imagen, una desenfocada.
-- Celular y TV se diseñan por igual. En TV, el foco del control es un anillo rosa con brillo.
+- Celular y TV se diseñan por igual. Con "reducir movimiento" en el sistema se apagan los
+  brillos y zooms decorativos; el foco y el "cargando" se quedan.
+- Auditado con [Impeccable](https://github.com/pbakaus/impeccable) (detector sobre el
+  código y sobre la app renderizada en celular y TV): 0 hallazgos.
 
 **Compatibilidad en Samsung:** desde televisores de 2021 (Tizen 6.5, Chromium 85). El diseño
 usa `gap` en flexbox (Chromium 84); los pósters no usan `aspect-ratio` y `build:tizen`

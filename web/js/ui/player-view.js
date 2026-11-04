@@ -119,7 +119,7 @@ function subtitlesSheetHTML(reproductor) {
   const tamanoSubs = reproductor.sesion.tamanoSubs;
   return `${sheetHeaderHTML('Subtítulos')}
     <div class="set-card"><div class="itext"><b>Activados</b></div><button class="switch" role="switch" aria-checked="${reproductor.sesion.subsActivos}" data-p="subtoggle"><i></i></button></div>
-    <div class="ajuste-fila"><span>Posición</span><div class="fila-acciones"><button class="chip" data-p="subpos:-1" aria-label="Subir">▲ Arriba</button><button class="chip" data-p="subpos:1" aria-label="Bajar">▼ Abajo</button></div></div>
+    <div class="ajuste-fila"><span>Posición</span><div class="fila-acciones"><button class="chip" data-p="subpos:-1" aria-label="Subir">${ICONOS.up}Arriba</button><button class="chip" data-p="subpos:1" aria-label="Bajar">${ICONOS.down}Abajo</button></div></div>
     <div class="ajuste-fila"><span>Tamaño (${tamanoSubs}px)</span><div class="fila-acciones"><button class="chip" data-p="subsize:-2" aria-label="Menor">A−</button><button class="chip" data-p="subsize:2" aria-label="Mayor">A+</button></div></div>`;
 }
 

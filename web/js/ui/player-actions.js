@@ -10,6 +10,7 @@ de if: agregar un botón es agregar una entrada.
 
 import { estado, updateState, preferencias } from '../app/state.js';
 import { $ } from './dom.js';
+import { ICONOS } from './icons.js';
 import { toggleLib } from './detail.js';
 import { updatePlayerUI, playerSheet } from './player-view.js';
 import { setTracksVisible, applyCueStyle, flashSubtitleHint } from './player-subtitles.js';
@@ -56,7 +57,7 @@ const ACCIONES_REPRODUCTOR = {
   },
   subpos: (reproductor, argumento) => {
     preferencias.saveSubtitleLine(reproductor.sesion.moveSubtitleLine(+argumento));
-    updateSubtitleSetting(reproductor, { valor: +argumento < 0 ? '▲' : '▼', etiqueta: 'Posición' });
+    updateSubtitleSetting(reproductor, { valor: +argumento < 0 ? ICONOS.up : ICONOS.down, etiqueta: 'Posición' });
   },
   subsize: (reproductor, argumento) => {
     preferencias.saveSubtitleSize(reproductor.sesion.resizeSubtitles(+argumento));

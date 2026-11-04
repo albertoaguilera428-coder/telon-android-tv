@@ -8,6 +8,7 @@ Si app/update-service.js encuentra una versión más nueva, ofrece descargar el 
 'use strict';
 
 import { escapeHTML } from './dom.js';
+import { ICONOS } from './icons.js';
 import { VERSION_TELON, fetchNewerVersion, downloadUpdate } from '../app/update-service.js';
 
 // ============================================================
@@ -21,7 +22,7 @@ function showUpdateBanner(version) {
   banner.id = 'updateBanner';
   banner.innerHTML = `<div class="modal-fondo">
       <div class="modal">
-        <span class="modal-icono">✦</span>
+        <span class="modal-icono">${ICONOS.update}</span>
         <h3>Nueva versión disponible</h3>
         <p>${escapeHTML(version.notes || 'Hay una actualización de Telón.')}</p>
         <p class="modal-nota">v${escapeHTML(version.version)} · Actual: v${VERSION_TELON}</p>
