@@ -59,9 +59,10 @@ app/src/main/
 └── assets/www/
     ├── index.html       esqueleto y orden de carga
     └── js/
-        ├── infra/       plataforma, http (429, tope y tiempos), almacenamiento, caché,
-        │                protocolo de addons, Narto, SoloLatino, Firebase
-        ├── domain/      reglas puras: países, episodios, catálogo, progreso, cuenta
+        ├── infra/       plataforma, http (429, tope y tiempos), errores, almacenamiento,
+        │                caché, protocolo de addons, Narto, SoloLatino, Firebase
+        ├── domain/      reglas puras: países, episodios, catálogo, progreso, cuenta,
+        │                orden de fuentes y sesión de reproducción
         ├── app/         estado y repositorios; casos de uso de catálogo, reproducción,
         │                cuenta y actualización
         ├── ui/          pantallas, reproductor, control remoto, componentes
@@ -73,15 +74,16 @@ app/src/main/
 | dominio | otras reglas del dominio | DOM, red, almacenamiento, reloj |
 | infraestructura | otra infraestructura | dominio, aplicación, pantallas |
 | aplicación | dominio, infraestructura | DOM, pantallas |
-| presentación | aplicación, dominio, plataforma y registro | red, almacenamiento |
+| presentación | aplicación, dominio; de infraestructura solo plataforma, registro y tipos de error | red, almacenamiento |
 
 `test/unit/arquitectura.test.js` hace cumplir esta tabla y el orden de carga. Son scripts
 clásicos que comparten `window.Telon`; el orden está en `index.html`.
 
 **Patrones en uso** (solo donde resuelven algo):
 
-- *Adapter*: `infra/platform.js` (Android, Samsung, navegador) y `infra/firebase-auth.js`
-  (imita el SDK).
+- *Adapter* con polimorfismo: `infra/platform.js` arma un adaptador por sistema (Android,
+  Samsung, navegador) con el mismo contrato; nadie pregunta en cuál está.
+  `infra/firebase-auth.js` imita el SDK.
 - *Repository*: perfiles, preferencias, sesión, lista e historial en `app/state.js`.
 - *Command*: tablas `data-act` y `data-p` (`main.js`, `ui/player.js`) en lugar de cadenas de `if`.
 - *Registro de addons virtuales*: cada sitio se registra en `infra/addon-client.js` y responde
@@ -97,6 +99,22 @@ y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md) Firebase por REST,
 [0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia del release,
 [0004](docs/decisiones/0004-sin-kafka-ni-broker-de-eventos.md) sin Kafka ni broker de eventos,
 [0005](docs/decisiones/0005-arquitectura-en-capas.md) arquitectura en capas.
+
+**Cómo está escrito el código** (guía, secciones 21 a 24):
+
+- *Objetos donde hay reglas que proteger:* la sesión de reproducción
+  (`domain/playback-session.js`) solo cambia por sus métodos, que cuidan los límites. Los
+  datos se leen pero no se asignan desde afuera. La herencia se usa solo en los tipos de
+  error (`infra/errors.js`), donde "es un Error" es cierto.
+- *Funciones puras en el dominio:* reciben datos y devuelven datos, sin DOM, red ni reloj
+  (la hora llega como parámetro). El estado compartido se actualiza creando copias (lista,
+  historial, filtros, addons), nunca cambiando el objeto que otro puede estar leyendo.
+  `test/unit/funcional.test.js` lo comprueba con datos congelados.
+- *Errores:* tipados y con su causa (`HttpError`, `TimeoutError`, `RateLimitError`…); al
+  usuario solo le llegan mensajes pensados para él (`userMessageFor`), nunca textos internos.
+  Lo que nadie atrapa termina en una frontera global en `main.js` que lo registra y avisa.
+- *Closures:* los temporizadores del reproductor se registran y se liberan al cerrarlo; el
+  índice de tarjetas se vacía en cada pintado.
 
 **Límites de consumo y concurrencia:** Telón no expone ninguna API; consume la de addons,
 sitios y Firebase, siempre a través de `infra/http.js`:
