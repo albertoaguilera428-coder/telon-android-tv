@@ -22,12 +22,15 @@ app/state.js: las pantallas nunca leen ni escriben aquí directamente.
         return porDefecto;
       }
     },
+    // Devuelve false si no se pudo guardar (por ejemplo, almacenamiento lleno) para que quien
+    // llama pueda avisarle al usuario en vez de dar por hecho algo que no pasó.
     set(clave, valor) {
       try {
         localStorage.setItem(PREFIJO_ALMACEN + clave, JSON.stringify(valor));
+        return true;
       } catch (error) {
-        // Si localStorage se llena, perdemos este guardado pero la app sigue viva.
         logIgnored('No se pudo guardar ' + clave, error);
+        return false;
       }
     },
     clearAll() {

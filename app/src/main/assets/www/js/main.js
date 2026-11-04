@@ -58,15 +58,23 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   function pickGalleryImage(perfil) {
     const selectorArchivo = document.getElementById('pffile');
     if (!selectorArchivo) return;
-    selectorArchivo.onchange = evento => {
+    selectorArchivo.onchange = async evento => {
       const archivo = evento.target.files[0];
-      if (!archivo) return;
-      const lector = new FileReader();
-      lector.onload = () => { perfiles.update(perfil.id, { image: lector.result }); render(); toast('Foto actualizada'); };
-      lector.readAsDataURL(archivo);
       selectorArchivo.value = '';
+      if (!archivo) return;
+      try {
+        saveProfileImage(perfil, await Telon.ui.avatarImage.resizeToAvatar(archivo));
+      } catch (error) {
+        toast('No se pudo usar esa foto: ' + error.message);
+      }
     };
     selectorArchivo.click();
+  }
+
+  function saveProfileImage(perfil, imagen) {
+    if (!perfiles.update(perfil.id, { image: imagen })) { toast('No se pudo guardar la foto: no queda espacio en el dispositivo'); return; }
+    render();
+    toast('Foto actualizada');
   }
 
   function editProfileImage() {
@@ -77,10 +85,8 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
     const respuesta = eleccion.trim();
     if (respuesta.toLowerCase() === 'galería' || respuesta.toLowerCase() === 'galeria') {
       pickGalleryImage(perfil);
-    } else if (respuesta.startsWith('http')) {
-      perfiles.update(perfil.id, { image: respuesta });
-      render();
-      toast('Foto actualizada');
+    } else if (/^https?:\/\//i.test(respuesta)) {
+      saveProfileImage(perfil, respuesta);
     } else {
       toast('URL no válida');
     }
@@ -242,4 +248,5 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   Telon.ui.updateBanner.checkForUpdate();
 
   Telon.main = { ACCIONES, handleBack, reloadAddons };
+
 })(window.Telon = window.Telon || {});

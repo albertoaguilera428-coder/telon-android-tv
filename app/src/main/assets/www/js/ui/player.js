@@ -17,7 +17,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
   const { SUBTITULOS, estado, preferencias, refKey, findAddon, isInLibrary } = Telon.app.state;
   const { fetchFullMeta } = Telon.app.catalogService;
   const playback = Telon.app.playbackService;
-  const { $, escapeHTML } = Telon.ui.dom;
+  const { $, escapeHTML, safeUrl } = Telon.ui.dom;
   const { toast } = Telon.ui.components;
   const { renderDetail, toggleLib } = Telon.ui.detail;
   const { homeBody } = Telon.ui.home;
@@ -311,7 +311,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
 
   function loadingHTML(texto) {
     const reproductor = current();
-    const poster = reproductor && reproductor.ficha && reproductor.ficha.poster;
+    const poster = reproductor && reproductor.ficha && safeUrl(reproductor.ficha.poster);
     const imagen = poster ? `<img src="${escapeHTML(poster)}" style="width:120px;border-radius:12px;margin-bottom:12px" alt="">` : '';
     return `<div style="display:flex;flex-direction:column;align-items:center">${imagen}<div class="spin" style="margin-bottom:8px"></div><span style="color:#fff;font-size:15px">${texto}</span></div>`;
   }

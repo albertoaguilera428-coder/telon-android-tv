@@ -37,6 +37,50 @@ Escapar HTML, buscar en el DOM y los colores e iniciales de las tarjetas sin ima
   const toInitials = texto => String(texto || '?').trim().split(/\s+/).slice(0, 2)
     .map(palabra => palabra[0]).join('').toUpperCase();
 
+  // ============================================================
+  // URLS Y COLORES QUE VIENEN DE AFUERA
+  // ============================================================
+
+  // Una URL de póster de un addon solo puede ser una imagen de verdad: nada de javascript:,
+  // file: ni texto armado para escapar del atributo.
+  const ESQUEMAS_IMAGEN = /^(https?:\/\/|data:image\/|blob:)/i;
+  const safeUrl = url => (typeof url === 'string' && ESQUEMAS_IMAGEN.test(url.trim()) ? url.trim() : '');
+
+  // Dentro de url(...) en CSS, comillas, paréntesis y espacios permitirían cerrar la función y
+  // agregar reglas propias. Se codifican como en una URL (%22, %28…), que el navegador entiende igual.
+  const encodeCssUrlChar = caracter => '%' + caracter.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0');
+  function cssUrl(url) {
+    const segura = safeUrl(url);
+    return segura ? 'url("' + segura.replace(/["'()\\\s<>]/g, encodeCssUrlChar) + '")' : '';
+  }
+
+  // Los colores de perfil se guardan en el dispositivo; igual se validan antes de ir a un style.
+  const safeColor = color => (/^#[0-9a-f]{3,8}$/i.test(String(color)) ? color : '#555555');
+
+  // ============================================================
+  // IMÁGENES ROTAS
+  // ============================================================
+
+  // En lugar de onerror="…" en el HTML (que una CSP estricta bloquea y que es un punto de
+  // inyección), cada <img> dice qué hacer si falla y un único listener lo aplica.
+  const RESPALDOS_IMAGEN = {
+    // Póster sin imagen: queda el color de fondo con el título encima.
+    noimg: imagen => { imagen.parentNode.classList.add('noimg'); imagen.remove(); },
+    remove: imagen => imagen.remove(),
+    // Avatar: se reemplaza por la inicial del perfil.
+    initial: imagen => { imagen.parentNode.textContent = imagen.dataset.inicial || ''; }
+  };
+
+  function handleImageError(evento) {
+    const imagen = evento.target;
+    if (!imagen || imagen.tagName !== 'IMG' || !imagen.dataset.fallback || !imagen.parentNode) return;
+    const respaldo = RESPALDOS_IMAGEN[imagen.dataset.fallback];
+    if (respaldo) respaldo(imagen);
+  }
+
+  // Los errores de carga de imágenes no burbujean: hay que escucharlos en la fase de captura.
+  document.addEventListener('error', handleImageError, true);
+
   Telon.ui = Telon.ui || {};
-  Telon.ui.dom = { COLORES, COLORES_PERFIL, $, escapeHTML, colorFor, toInitials };
+  Telon.ui.dom = { COLORES, COLORES_PERFIL, $, escapeHTML, colorFor, toInitials, safeUrl, cssUrl, safeColor };
 })(window.Telon = window.Telon || {});

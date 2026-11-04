@@ -9,7 +9,7 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor } = Telon.ui.dom;
+  const { $, escapeHTML, colorFor, safeUrl, safeColor } = Telon.ui.dom;
   const { getCountryCode } = Telon.domain.countries;
   const { refKey } = Telon.domain.progress;
 
@@ -45,10 +45,11 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
   const spinnerHTML = etiqueta => `<div class="spin" role="progressbar" aria-label="${etiqueta}"></div>`;
 
   function posterHTML(ficha, extra = '') {
-    const imagen = ficha.poster ? `<img loading="lazy" src="${escapeHTML(ficha.poster)}" alt="" onerror="this.parentNode.classList.add('noimg');this.remove()">` : '';
+    const poster = safeUrl(ficha.poster);
+    const imagen = poster ? `<img loading="lazy" src="${escapeHTML(poster)}" alt="" data-fallback="noimg">` : '';
     const pais = getCountryCode(ficha);
     const etiquetaPais = pais ? `<span class="tag">${escapeHTML(pais)}</span>` : '';
-    return `<div class="poster ${ficha.poster ? '' : 'noimg'}" style="background:${colorFor(ficha.name)}">${imagen}${etiquetaPais}<span class="ptitle">${escapeHTML(ficha.name)}</span>${extra}</div>`;
+    return `<div class="poster ${poster ? '' : 'noimg'}" style="background:${colorFor(ficha.name)}">${imagen}${etiquetaPais}<span class="ptitle">${escapeHTML(ficha.name)}</span>${extra}</div>`;
   }
 
   function cardHTML(addon, tipo, ficha, extra = '', claseExtra = '') {
@@ -69,14 +70,16 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
 
   function pfAvatarHTML(perfil, tamano) {
     const lado = tamano || 96;
-    if (perfil.image) return `<span class="pf-avatar" style="background:${escapeHTML(perfil.color)}"><img src="${escapeHTML(perfil.image)}" style="width:${lado}px;height:${lado}px;border-radius:12px;object-fit:cover" onerror="this.remove()"></span>`;
-    return `<span class="pf-avatar" style="background:${escapeHTML(perfil.color)}">${initialOf(perfil)}</span>`;
+    const imagen = safeUrl(perfil.image), color = safeColor(perfil.color);
+    if (imagen) return `<span class="pf-avatar" style="background:${color}"><img src="${escapeHTML(imagen)}" style="width:${lado}px;height:${lado}px;border-radius:12px;object-fit:cover" data-fallback="remove"></span>`;
+    return `<span class="pf-avatar" style="background:${color}">${initialOf(perfil)}</span>`;
   }
 
   function miniAvatarHTML(perfil) {
     if (!perfil) return '';
-    if (perfil.image) return `<button class="pf-mini" data-act="showprofiles" style="background:${escapeHTML(perfil.color)};padding:0;overflow:hidden"><img src="${escapeHTML(perfil.image)}" style="width:32px;height:32px;border-radius:16px;object-fit:cover" onerror="this.parentNode.textContent='${initialOf(perfil)}'"></button>`;
-    return `<button class="pf-mini" data-act="showprofiles" style="background:${escapeHTML(perfil.color)}">${initialOf(perfil)}</button>`;
+    const imagen = safeUrl(perfil.image), color = safeColor(perfil.color);
+    if (imagen) return `<button class="pf-mini" data-act="showprofiles" style="background:${color};padding:0;overflow:hidden"><img src="${escapeHTML(imagen)}" style="width:32px;height:32px;border-radius:16px;object-fit:cover" data-fallback="initial" data-inicial="${initialOf(perfil)}"></button>`;
+    return `<button class="pf-mini" data-act="showprofiles" style="background:${color}">${initialOf(perfil)}</button>`;
   }
 
   Telon.ui = Telon.ui || {};

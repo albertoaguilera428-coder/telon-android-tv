@@ -10,6 +10,14 @@ interfaz y la lista de módulos; la lógica vive en js/.
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<!--
+  Política de seguridad: solo corren los scripts de la app (nada inline, nada de eval) y no se
+  embeben objetos ni marcos. Imágenes, video y conexiones quedan abiertos porque los addons
+  pueden estar en cualquier dominio o en la red local. file: cubre el WebView de Android y el
+  paquete de Samsung, que cargan la app desde archivos. Los style="" siguen permitidos: la
+  interfaz los usa y no ejecutan código.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src * data: blob:; media-src * data: blob:; connect-src *; font-src 'self' data: file:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Va primero: decide si somos TV o celular y ajusta el viewport antes del primer pintado. -->
 <script src="js/infra/platform.js"></script>
@@ -58,6 +66,7 @@ interfaz y la lista de módulos; la lógica vive en js/.
 <script src="js/ui/tv-remote.js"></script>
 <script src="js/ui/account.js"></script>
 <script src="js/ui/update-banner.js"></script>
+<script src="js/ui/avatar-image.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

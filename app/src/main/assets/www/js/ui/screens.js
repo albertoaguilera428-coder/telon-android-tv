@@ -9,7 +9,7 @@ pestaña activa y arma la barra de navegación.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, toInitials } = Telon.ui.dom;
+  const { $, escapeHTML, colorFor, toInitials, safeUrl, safeColor } = Telon.ui.dom;
   const plataforma = Telon.infra.platform;
   const { listResourceNames } = Telon.domain.catalog;
   const { progressPercent, sortByRecent } = Telon.domain.progress;
@@ -48,7 +48,7 @@ pestaña activa y arma la barra de navegación.
   function addonItemHTML(addon) {
     const m = addon.manifest;
     const recursos = listResourceNames(m);
-    const logo = m.logo ? `<img src="${escapeHTML(m.logo)}" alt="" onerror="this.remove()">` : '';
+    const logo = safeUrl(m.logo) ? `<img src="${escapeHTML(safeUrl(m.logo))}" alt="" data-fallback="remove">` : '';
     // Quitar un addon pide dos toques: el primero arma la confirmación, el segundo borra.
     const confirmando = estado.confirmarBorrado === addon.base;
     return `<div class="item"><div class="logo48" style="background:${colorFor(m.name)}">${logo || escapeHTML(toInitials(m.name))}</div>
@@ -122,7 +122,7 @@ pestaña activa y arma la barra de navegación.
   function profileCardHTML() {
     const perfil = perfiles.active();
     if (!perfil) return '';
-    return `<div class="set-card" data-act="showprofiles"><div class="set-avatar" style="background:${escapeHTML(perfil.color)}">${escapeHTML(perfil.name[0].toUpperCase())}</div><div class="itext"><b>${escapeHTML(perfil.name)}</b><span>Cambiar perfil</span></div><span class="set-arrow">${ICONOS.back}</span></div>`;
+    return `<div class="set-card" data-act="showprofiles"><div class="set-avatar" style="background:${safeColor(perfil.color)}">${escapeHTML(perfil.name[0].toUpperCase())}</div><div class="itext"><b>${escapeHTML(perfil.name)}</b><span>Cambiar perfil</span></div><span class="set-arrow">${ICONOS.back}</span></div>`;
   }
 
   function verificationCardsHTML() {

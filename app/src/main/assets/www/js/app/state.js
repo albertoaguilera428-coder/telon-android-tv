@@ -22,7 +22,7 @@ los usuarios.
 
   const perfiles = {
     all() { return store.get('profiles', []); },
-    save(lista) { store.set('profiles', lista); },
+    save(lista) { return store.set('profiles', lista); },
     active() {
       const id = store.get('activeProfile', null);
       const todos = this.all();
@@ -41,11 +41,12 @@ los usuarios.
       this.save(lista);
       if (store.get('activeProfile') === id && lista.length) this.setActive(lista[0].id);
     },
+    // Devuelve false si el cambio no se pudo guardar.
     update(id, cambios) {
       const lista = this.all();
       const perfil = lista.find(p => p.id === id);
       if (perfil) Object.assign(perfil, cambios);
-      this.save(lista);
+      return this.save(lista);
     },
     findByName(nombre) {
       return this.all().find(p => p.name.toLowerCase() === nombre.trim().toLowerCase()) || null;
@@ -160,6 +161,5 @@ los usuarios.
   const resetAllData = () => store.clearAll();
 
   Telon.app = Telon.app || {};
-  Telon.app.state = { SUBTITULOS, perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, isVirtualAddon, saveAddons,
-    isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
+  Telon.app.state = { SUBTITULOS, perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, isVirtualAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
 })(window.Telon = window.Telon || {});

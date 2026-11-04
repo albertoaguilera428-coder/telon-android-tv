@@ -10,7 +10,7 @@ los catálogos que declaran soportarla.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor } = Telon.ui.dom;
+  const { $, escapeHTML, colorFor, cssUrl } = Telon.ui.dom;
   const { getCountryCode, getCountryLabel } = Telon.domain.countries;
   const { collectFilterOptions, resetStaleFilters, applyFilters, hasActiveFilters } = Telon.domain.catalog;
   const { progressPercent, continueWatching } = Telon.domain.progress;
@@ -66,9 +66,9 @@ los catálogos que declaran soportarla.
     const addon = visibles[0].addon;
     const pais = getCountryCode(primero);
     const clave = registerCard({ base: addon.base, type: primero.type || visibles[0].cat.type, id: primero.id, name: primero.name, poster: primero.poster, country: pais });
-    const imagenFondo = primero.background || primero.poster;
+    const imagenFondo = cssUrl(primero.background || primero.poster);
     const subtitulo = [(primero.genres || []).slice(0, 2).join(' · '), addon.manifest.name].filter(Boolean).join(' · ');
-    return `<button class="hero" data-act="open" data-k="${escapeHTML(clave)}" style="background-color:${colorFor(primero.name)};${imagenFondo ? `background-image:url('${escapeHTML(imagenFondo)}')` : ''}">
+    return `<button class="hero" data-act="open" data-k="${escapeHTML(clave)}" style="background-color:${colorFor(primero.name)};${imagenFondo ? `background-image:${escapeHTML(imagenFondo)}` : ''}">
       <span class="badge">Destacado${pais ? ' · ' + escapeHTML(pais) : ''}</span>
       <span class="herorow"><span><h2>${escapeHTML(primero.name)}</h2><div class="herosub">${escapeHTML(subtitulo)}</div></span><span class="playfab">${ICONOS.play}</span></span></button>`;
   }
