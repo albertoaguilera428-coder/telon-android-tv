@@ -58,6 +58,12 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # Gradle empaqueta la app web con esbuild antes de armar el APK.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: gradle/actions/setup-gradle@v4
       - name: Lint de Android (cualquier advertencia rompe el build), JUnit y APK debug
         run: bash gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug

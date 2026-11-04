@@ -3,14 +3,14 @@
   "_comentario": "Mutación solo en la lógica de mayor riesgo (reglas del dominio, protocolo de addons, red, caché y foco del control remoto): es lenta y ahí es donde un error pasa desapercibido. Se corre a demanda o en el pipeline semanal, no en cada push. El comando debe incluir todas las pruebas que cubren esos archivos. Concurrencia 2 porque la máquina de CI tiene 2 núcleos: con más, las pruebas se alargan y todo termina en timeout (que Stryker cuenta como detectado e infla el puntaje). Se excluyen las mutaciones de textos (mensajes y etiquetas): son muchas y casi no aportan señal.",
   "testRunner": "command",
   "commandRunner": {
-    "command": "node --test --test-timeout=20000 test/unit/addon-client.test.js test/unit/interfaz.test.js test/unit/concurrencia.test.js test/unit/state.test.js test/unit/fuentes.test.js test/unit/sesion-reproduccion.test.js test/unit/funcional.test.js test/unit/cache.test.js test/unit/errores.test.js"
+    "command": "node --test --test-timeout=20000 test/unit/addon-client.test.js test/unit/interfaz.test.js test/unit/concurrencia.test.js test/unit/state.test.js test/unit/fuentes.test.js test/unit/sesion-reproduccion.test.js test/unit/funcional.test.js test/unit/cache.test.js test/unit/errores.test.js test/unit/cuenta.test.js test/unit/reproductor.test.js test/unit/repintado.test.js test/unit/addons-virtuales.test.js"
   },
   "mutate": [
-    "app/src/main/assets/www/js/domain/*.js",
-    "app/src/main/assets/www/js/infra/addon-client.js",
-    "app/src/main/assets/www/js/infra/http.js",
-    "app/src/main/assets/www/js/infra/cache.js",
-    "app/src/main/assets/www/js/ui/tv-remote.js"
+    "web/js/domain/*.js",
+    "web/js/infra/addon-client.js",
+    "web/js/infra/http.js",
+    "web/js/infra/cache.js",
+    "web/js/ui/tv-remote.js"
   ],
   "coverageAnalysis": "off",
   "concurrency": 2,
@@ -38,5 +38,10 @@
     "excludedMutations": [
       "StringLiteral"
     ]
-  }
+  },
+  "ignorePatterns": [
+    "app/build",
+    ".gradle",
+    "build"
+  ]
 }

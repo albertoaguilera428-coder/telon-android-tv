@@ -99,7 +99,8 @@ test('los tres adaptadores cumplen el mismo contrato y se pueden usar indistinta
     plataforma.closeEmbed();
     assert.equal(typeof plataforma.openEmbed('https://x', 'https://y'), 'boolean');
     assert.equal(typeof plataforma.downloadUpdate('https://x/a.apk'), 'boolean');
-    assert.ok(Object.isFrozen(plataforma), 'nadie puede cambiar el adaptador desde afuera');
+    // Que nadie cambie el adaptador desde afuera lo garantiza el lenguaje (un import es de solo
+    // lectura) y lo revisa test/unit/arquitectura.test.js en el código.
     app.close();
     return forma;
   };

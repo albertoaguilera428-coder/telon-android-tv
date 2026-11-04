@@ -26,6 +26,35 @@ function loadAccount(opciones = {}) {
 }
 
 // ============================================================
+// VALIDACIÓN ANTES DE LLAMAR A FIREBASE
+// ============================================================
+
+test('ingresar pide correo y contraseña; un correo de puros espacios cuenta como vacío', () => {
+  const { app } = loadAccount();
+  const { validateLogin } = app.Telon.domain.account;
+  assert.equal(validateLogin('ana@x.com', 'secreto1'), null);
+  assert.equal(validateLogin('', 'secreto1'), 'Escribe correo y contraseña');
+  assert.equal(validateLogin('   ', 'secreto1'), 'Escribe correo y contraseña');
+  assert.equal(validateLogin('ana@x.com', ''), 'Escribe correo y contraseña');
+  app.close();
+});
+
+test('registrarse con un correo de puros espacios pide el correo', () => {
+  const { app } = loadAccount();
+  const { validateRegistration } = app.Telon.domain.account;
+  assert.equal(validateRegistration('Ana', '   ', 'secreto1'), 'Escribe tu correo');
+  app.close();
+});
+
+test('si la validación falla no se llama a Firebase', async () => {
+  const { app, cuenta } = loadAccount();
+  const resultado = await cuenta.login('   ', 'secreto1');
+  assert.equal(resultado.ok, false);
+  assert.ok(!app.log.some(l => l.includes('identitytoolkit')), 'no hubo petición');
+  app.close();
+});
+
+// ============================================================
 // REGISTRO E INGRESO
 // ============================================================
 

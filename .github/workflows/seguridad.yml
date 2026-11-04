@@ -32,6 +32,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # Gradle empaqueta la app web con esbuild antes de armar el APK.
+      - uses: actions/setup-node@v4
+        if: matrix.lenguaje == 'java'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: matrix.lenguaje == 'java'
       - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.lenguaje }}

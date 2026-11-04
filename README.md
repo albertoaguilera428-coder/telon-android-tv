@@ -6,12 +6,12 @@ corre en **Android** (celular, tablet y Android TV, dentro de un WebView) y en
 
 ## Requisitos
 
-- Node.js 20 o superior (pruebas, lint y empaquetado para Samsung).
+- Node.js 20 o superior (pruebas, lint y empaquetado de la app web, también para el APK).
 - JDK 21 y Android SDK 34 para el APK. Gradle 8.9 no corre con JDK 25.
 - Para Samsung: Tizen Studio con *TV Extensions* y *Samsung Certificate Extension*.
 
 ```bash
-npm ci
+npm ci                                 # antes del primer ./gradlew: Gradle empaqueta web/ con esbuild
 npx playwright-core install chromium   # solo para las pruebas de interfaz
 echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 ```
@@ -23,17 +23,20 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 | APK de desarrollo | `./gradlew assembleDebug` | `app/build/outputs/apk/debug/app-debug.apk` |
 | APK de release | `./gradlew assembleRelease` | firmado si existe `keystore.properties` (ver abajo) |
 | Paquete Samsung | `npm run build:tizen` | `build/tizen/` y `build/Telon-sin-firmar.wgt` |
+| App web empaquetada | `npm run build:web` | `build/web/` (lo mismo que va dentro del APK) |
 
-Para probar la interfaz en el navegador alcanza con servir
-`app/src/main/assets/www/` con cualquier servidor estático. Sin puente de Android se
-abre la interfaz táctil.
+Para probar la interfaz en el navegador alcanza con servir `web/` con cualquier servidor
+estático (carga `js/main.js` como módulo, sin empaquetar). Sin puente de Android se abre
+la interfaz táctil. El código es de módulos ES; lo que se instala es un solo `telon.js`
+([0007](docs/decisiones/0007-modulos-es-y-empaquetado.md)).
 
 ## Pruebas
 
 ```bash
 npm test                 # lint + unitarias + aceptación + flujo/interfaz
 npm run coverage         # cobertura (señal para encontrar huecos, no una meta)
-npm run mutation         # Stryker sobre la lógica de mayor riesgo (tarda ~15 min)
+npm run mutation         # Stryker sobre la lógica de mayor riesgo (horas; mejor en el CI)
+npx stryker run --mutate web/js/domain/account.js   # un archivo: unos minutos
 ./gradlew lintDebug testDebugUnitTest
 ```
 
@@ -54,11 +57,11 @@ mutación corre una vez por semana.
 Monolito en capas (ver [0005](docs/decisiones/0005-arquitectura-en-capas.md)):
 
 ```
-app/src/main/
-├── java/app/telon/tv/   MainActivity (WebView + puente TelonBridge) y PlaybackRules
-└── assets/www/
-    ├── index.html       esqueleto y orden de carga
-    └── js/
+app/src/main/java/app/telon/tv/   MainActivity (WebView + puente TelonBridge) y PlaybackRules
+scripts/empaquetar-web.mjs         junta web/js en telon.js (Gradle lo corre antes del APK)
+web/
+├── index.html       esqueleto; carga js/main.js
+└── js/
         ├── infra/       plataforma, http (429, tope y tiempos), errores, almacenamiento,
         │                caché, protocolo de addons, Narto, SoloLatino, Firebase
         ├── domain/      reglas puras: países, episodios, catálogo, progreso, cuenta,
@@ -78,8 +81,8 @@ app/src/main/
 | aplicación | dominio, infraestructura | DOM, pantallas |
 | presentación | aplicación, dominio; de infraestructura solo plataforma, registro y tipos de error | red, almacenamiento |
 
-`test/unit/arquitectura.test.js` hace cumplir esta tabla y el orden de carga. Son scripts
-clásicos que comparten `window.Telon`; el orden está en `index.html`.
+`test/unit/arquitectura.test.js` hace cumplir esta tabla leyendo los `import` de cada
+módulo, y revisa que no haya ciclos y que todo se alcance desde `main.js`.
 
 **Patrones en uso** (solo donde resuelven algo):
 
@@ -103,7 +106,8 @@ y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md) Firebase por REST,
 [0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia del release,
 [0004](docs/decisiones/0004-sin-kafka-ni-broker-de-eventos.md) sin Kafka ni broker de eventos,
 [0005](docs/decisiones/0005-arquitectura-en-capas.md) arquitectura en capas,
-[0006](docs/decisiones/0006-estado-con-suscripciones.md) estado con suscripciones.
+[0006](docs/decisiones/0006-estado-con-suscripciones.md) estado con suscripciones,
+[0007](docs/decisiones/0007-modulos-es-y-empaquetado.md) módulos ES y empaquetado.
 
 **Cómo está escrito el código** (guía, secciones 21 a 24):
 

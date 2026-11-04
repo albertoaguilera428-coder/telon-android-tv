@@ -12,7 +12,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp, plain } = require('../support/app-driver');
 
-const app = loadApp({ hasta: 'js/infra/addons/sololatino.js' });
+const app = loadApp({ hasta: ['js/infra/addons/sololatino.js', 'js/infra/addons/narto.js'] });
 const { narto, sololatino } = app.Telon.infra;
 test.after(() => app.close());
 

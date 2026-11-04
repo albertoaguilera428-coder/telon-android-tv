@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const fc = require('fast-check');
 const { loadApp, plain } = require('../support/app-driver');
 
-const app = loadApp({ hasta: 'js/domain/episodes.js' });
+const app = loadApp({ sinArrancar: true });
 // Reúne red (infra/http), protocolo (infra/addon-client) y reglas de países y episodios (dominio).
 const { infra, domain } = app.Telon;
 const cliente = Object.assign({}, infra.http, infra.addonClient, domain.countries, domain.episodes);

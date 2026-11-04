@@ -14,7 +14,7 @@ const assert = require('node:assert/strict');
 const fc = require('fast-check');
 const { loadApp, plain } = require('../support/app-driver');
 
-const app = loadApp({ hasta: 'js/app/state.js' });
+const app = loadApp({ sinArrancar: true });
 const { countries, episodes, catalog, progress, sources } = app.Telon.domain;
 test.after(() => app.close());
 

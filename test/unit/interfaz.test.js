@@ -11,7 +11,7 @@ const fc = require('fast-check');
 const { loadApp } = require('../support/app-driver');
 
 // Carga todo menos main.js: la interfaz queda disponible sin arrancar la app.
-const app = loadApp({ hasta: 'js/ui/update-banner.js' });
+const app = loadApp({ sinArrancar: true });
 const { tvRemote } = app.Telon.ui;
 const { progress, episodes, account } = app.Telon.domain;
 test.after(() => app.close());
@@ -144,7 +144,7 @@ test('a igual puntaje gana el primero en el orden de la página', () => {
 });
 
 test('moveTvFocus enfoca la pestaña activa si nada tiene foco y luego se mueve a la derecha', () => {
-  const tv = loadApp({ hasta: 'js/ui/update-banner.js' });
+  const tv = loadApp({ sinArrancar: true });
   const doc = tv.document;
   doc.querySelector('#nav').innerHTML = '<button id="a">Inicio</button><button id="b" class="on">Biblioteca</button>';
   doc.querySelector('#screen').innerHTML = '<button id="c">Derecha</button><button id="oculto" hidden>Oculto</button><button id="cero">Sin tamaño</button>';
@@ -161,7 +161,7 @@ test('moveTvFocus enfoca la pestaña activa si nada tiene foco y luego se mueve 
 });
 
 test('OK sobre un elemento enfocado lo activa', () => {
-  const tv = loadApp({ hasta: 'js/ui/update-banner.js' });
+  const tv = loadApp({ sinArrancar: true });
   let activado = false;
   tv.document.querySelector('#screen').innerHTML = '<button id="x">X</button>';
   const boton = tv.document.getElementById('x');

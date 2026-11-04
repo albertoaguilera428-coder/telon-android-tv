@@ -21,7 +21,7 @@ const { WWW, readIndex, listScripts } = require('../support/app-driver');
 const RAIZ = path.join(__dirname, '..', '..');
 const DOCUMENTOS = ['README.md', ...fs.readdirSync(path.join(RAIZ, 'docs', 'decisiones')).map(f => path.join('docs', 'decisiones', f))];
 const FIRMA_AUTOR = 'De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático';
-const CARPETAS_CON_CABECERA = ['app/src/main/assets/www/js', 'app/src/main/java', 'app/src/test', 'test', 'features', 'scripts'];
+const CARPETAS_CON_CABECERA = ['web/js', 'app/src/main/java', 'app/src/test', 'test', 'features', 'scripts'];
 
 function listFiles(carpeta, extensiones) {
   return fs.readdirSync(carpeta, { withFileTypes: true }).flatMap(entrada => {
@@ -64,8 +64,10 @@ test('todo archivo de código lleva la cabecera de autoría', () => {
   assert.deepEqual(sinCabecera.map(a => path.relative(RAIZ, a)), []);
 });
 
-test('cada módulo de js/ está cargado en index.html (no hay archivos huérfanos ni faltantes)', () => {
-  const cargados = listScripts(readIndex()).sort();
-  const existentes = listFiles(path.join(WWW, 'js'), ['.js']).map(a => path.relative(WWW, a).split(path.sep).join('/')).sort();
-  assert.deepEqual(cargados, existentes);
+// Que ningún módulo quede fuera lo revisa test/unit/arquitectura.test.js (todos se alcanzan desde main.js).
+test('index.html carga la app con una sola entrada: js/main.js como módulo', () => {
+  const indice = readIndex();
+  assert.deepEqual(listScripts(indice), [], 'no quedan scripts clásicos sueltos');
+  assert.deepEqual([...indice.matchAll(/<script type="module" src="([^"]+)"><\/script>/g)].map(m => m[1]), ['js/main.js']);
+  assert.ok(fs.existsSync(path.join(WWW, 'js', 'main.js')));
 });

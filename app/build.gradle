@@ -5,6 +5,9 @@
 //
 // La firma de release se lee de keystore.properties (fuera de git). Si no existe, el
 // release sale sin firmar en vez de firmarse con la clave de debug, que es pública.
+//
+// La app web (web/) se empaqueta con Node antes de armar el APK: hace falta haber corrido
+// `npm ci` una vez (ver README).
 // ============================================================
 plugins {
     id 'com.android.application'
@@ -63,4 +66,43 @@ android {
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'
+}
+
+// ============================================================
+// APP WEB
+// ============================================================
+// El WebView carga la app desde file://, donde no se pueden cargar módulos ES: se juntan en
+// un solo telon.js con scripts/empaquetar-web.mjs y el resultado entra al APK como assets/www.
+abstract class EmpaquetarWeb extends DefaultTask {
+    @InputDirectory @PathSensitive(PathSensitivity.RELATIVE)
+    abstract DirectoryProperty getFuentes()
+
+    @InputFile @PathSensitive(PathSensitivity.RELATIVE)
+    abstract RegularFileProperty getScript()
+
+    @OutputDirectory
+    abstract DirectoryProperty getSalida()
+
+    @Inject
+    abstract ExecOperations getEjecucion()
+
+    @TaskAction
+    void empaquetar() {
+        ejecucion.exec {
+            commandLine 'node', script.get().asFile.absolutePath, salida.get().dir('www').asFile.absolutePath
+        }
+    }
+}
+
+def tareaWeb = tasks.register('empaquetarWeb', EmpaquetarWeb) {
+    description = 'Junta web/js en un solo telon.js para el WebView (scripts/empaquetar-web.mjs).'
+    fuentes = rootProject.layout.projectDirectory.dir('web')
+    script = rootProject.layout.projectDirectory.file('scripts/empaquetar-web.mjs')
+    salida = layout.buildDirectory.dir('generated/web')
+}
+
+androidComponents {
+    onVariants(selector().all()) { variante ->
+        variante.sources.assets.addGeneratedSourceDirectory(tareaWeb, { it.salida })
+    }
 }

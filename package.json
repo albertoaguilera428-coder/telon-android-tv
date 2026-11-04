@@ -8,8 +8,9 @@
     "test:e2e": "node --test --test-concurrency=1 --test-timeout=60000 \"test/e2e/**/*.test.js\"",
     "test:bdd": "cucumber-js",
     "test": "npm run lint && npm run test:unit && npm run test:bdd && npm run test:e2e",
-    "coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include='app/src/main/assets/www/js/**' \"test/unit/**/*.test.js\" test/e2e/flujo.test.js",
+    "coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include='web/js/**' \"test/unit/**/*.test.js\" test/e2e/flujo.test.js",
     "mutation": "stryker run",
+    "build:web": "node scripts/empaquetar-web.mjs build/web",
     "build:tizen": "node scripts/build-tizen.mjs"
   },
   "engines": {

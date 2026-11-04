@@ -16,13 +16,13 @@ module.exports = [
   { ignores: ['node_modules/**', 'build/**', 'app/build/**', '.gradle/**', 'reports/**', '.stryker-tmp/**'] },
   js.configs.recommended,
   // ============================================================
-  // CÓDIGO DE LA APP (navegador, scripts clásicos)
+  // CÓDIGO DE LA APP (navegador, módulos ES)
   // ============================================================
   {
-    files: ['app/src/main/assets/www/js/**/*.js'],
+    files: ['web/js/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'script',
+      sourceType: 'module',
       globals: { ...globals.browser }
     },
     rules: {

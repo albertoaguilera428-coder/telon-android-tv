@@ -4,7 +4,8 @@ Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
 Abre la app en un Chromium real con los tamaños de pantalla que soportamos y revisa que
-nada se salga de la pantalla y que la navegación y el contenido estén a la vista. Deja
+nada se salga de la pantalla y que la navegación y el contenido estén a la vista. Prueba
+la app empaquetada (telon.js), que es la que se instala en Android y Samsung. Deja
 capturas en build/capturas/ para revisarlas a ojo en el pull request.
 
 Si Chromium no está instalado (npx playwright-core install chromium), la prueba se salta
@@ -17,14 +18,17 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const { WWW } = require('../support/app-driver');
+const { execFileSync } = require('child_process');
+const { buildSync } = require('esbuild');
 const { route } = require('../support/fixtures');
 
 // ============================================================
 // CONSTANTES
 // ============================================================
 
-const CAPTURAS = path.join(__dirname, '..', '..', 'build', 'capturas');
+const RAIZ = path.join(__dirname, '..', '..');
+const CAPTURAS = path.join(RAIZ, 'build', 'capturas');
+const PAQUETE = path.join(RAIZ, 'build', 'web-pruebas');
 const DISPOSITIVOS = [
   { nombre: 'celular', modo: 'android-phone', viewport: { width: 390, height: 844 }, escala: 3, tactil: true },
   { nombre: 'tablet', modo: 'android-phone', viewport: { width: 820, height: 1180 }, escala: 2, tactil: true },
@@ -39,10 +43,18 @@ const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 // ENTORNO
 // ============================================================
 
+// Se empaqueta una vez, como para el APK. avatar-prueba.js expone el redimensionado de fotos
+// para probarlo con el canvas real de Chromium (el paquete no expone nada hacia afuera).
+function packageApp() {
+  execFileSync(process.execPath, [path.join(RAIZ, 'scripts', 'empaquetar-web.mjs'), PAQUETE], { stdio: 'ignore' });
+  buildSync({ entryPoints: [path.join(RAIZ, 'web', 'js', 'ui', 'avatar-image.js')], bundle: true, format: 'iife', globalName: 'avatarImage', outfile: path.join(PAQUETE, 'avatar-prueba.js'), logLevel: 'error' });
+}
+packageApp();
+
 function startStaticServer() {
   const servidor = http.createServer((peticion, respuesta) => {
-    const ruta = path.join(WWW, decodeURIComponent(new URL(peticion.url, 'http://x').pathname));
-    if (!ruta.startsWith(WWW) || !fs.existsSync(ruta) || fs.statSync(ruta).isDirectory()) { respuesta.writeHead(404); respuesta.end(); return; }
+    const ruta = path.join(PAQUETE, decodeURIComponent(new URL(peticion.url, 'http://x').pathname));
+    if (!ruta.startsWith(PAQUETE) || !fs.existsSync(ruta) || fs.statSync(ruta).isDirectory()) { respuesta.writeHead(404); respuesta.end(); return; }
     respuesta.writeHead(200, { 'Content-Type': TIPOS[path.extname(ruta)] || 'application/octet-stream' });
     fs.createReadStream(ruta).pipe(respuesta);
   });
@@ -241,9 +253,21 @@ test('biblioteca, addons, reproductor y avisos se ven bien en los cuatro disposi
         await medir('subtitulos'); await capturar('subtitulos');
         await pagina.evaluate(() => { window.telonBack(); window.telonBack(); window.telonBack(); });
 
-        await pagina.evaluate(() => window.Telon.ui.updateBanner.showUpdateBanner({ version: 3, notes: 'Episodios más rápidos y un diseño nuevo.', url: 'https://ejemplo.com/telon.apk' }));
-        await pagina.waitForSelector('.modal');
-        await medir('actualizacion'); await capturar('actualizacion');
+        // El aviso aparece por el camino real: al arrancar, el servidor ofrece una versión más nueva.
+        await contexto.route(url => url.href.includes('/telon/version.json'), solicitud => solicitud.fulfill({
+          status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify({ version: 3, notes: 'Episodios más rápidos y un diseño nuevo.', url: 'https://ejemplo.com/telon.apk' })
+        }));
+        await pagina.reload();
+        if (dispositivo.modo === 'tizen') {
+          // En Samsung el .wgt se reinstala a mano: la app no ofrece actualizar.
+          await pagina.waitForSelector('.card');
+          await pagina.waitForTimeout(500);
+          assert.equal(await pagina.$('.modal'), null, 'en Samsung no debe ofrecer actualizar');
+        } else {
+          await pagina.waitForSelector('.modal');
+          await medir('actualizacion'); await capturar('actualizacion');
+        }
         await contexto.close();
 
         assert.deepEqual(errores, []);
@@ -273,7 +297,7 @@ test('cargada desde file:// (como el WebView de Android) funciona sin violar la 
     const pagina = await contexto.newPage();
     const errores = [];
     pagina.on('pageerror', error => errores.push(error.message));
-    await pagina.goto('file://' + path.join(WWW, 'index.html'));
+    await pagina.goto('file://' + path.join(PAQUETE, 'index.html'));
     await pagina.waitForSelector('.card', { timeout: 10000 });
     const medidas = await pagina.evaluate(measureLayout);
     await contexto.close();
@@ -294,11 +318,13 @@ test('una foto grande de la galería se guarda reducida a 256 px y pesa pocos KB
     return;
   }
   try {
-    const contexto = await navegador.newContext();
+    // bypassCSP: la prueba inyecta avatar-prueba.js; lo que se revisa aquí es la foto, no la CSP.
+    const contexto = await navegador.newContext({ bypassCSP: true });
     await contexto.addInitScript(platformInitScript('android-phone'));
     await contexto.route(url => /^https?:/.test(url.href), answerFromFixtures);
     const pagina = await contexto.newPage();
-    await pagina.goto('file://' + path.join(WWW, 'index.html'));
+    await pagina.goto('file://' + path.join(PAQUETE, 'index.html'));
+    await pagina.addScriptTag({ path: path.join(PAQUETE, 'avatar-prueba.js') });
     const resultado = await pagina.evaluate(async () => {
       // Foto de 4000×3000 con ruido para que no se comprima trivialmente, como una de celular.
       const lienzo = document.createElement('canvas');
@@ -308,7 +334,7 @@ test('una foto grande de la galería se guarda reducida a 256 px y pesa pocos KB
       for (let i = 0; i < ruido.data.length; i++) ruido.data[i] = (i * 2654435761) % 256;
       ctx.putImageData(ruido, 0, 0);
       const archivo = await new Promise(r => lienzo.toBlob(r, 'image/jpeg', 0.95));
-      const dataUrl = await window.Telon.ui.avatarImage.resizeToAvatar(archivo);
+      const dataUrl = await window.avatarImage.resizeToAvatar(archivo);
       const imagen = new Image();
       await new Promise(r => { imagen.onload = r; imagen.src = dataUrl; });
       return { original: archivo.size, guardado: dataUrl.length, ancho: imagen.naturalWidth, alto: imagen.naturalHeight };

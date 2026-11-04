@@ -3,8 +3,8 @@ Telón - Empaquetado para televisores Samsung (.wgt)
 Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
-Toma la misma app web del APK, rebaja JavaScript y CSS para el Chromium de Tizen 6.5
-y la deja lista en build/tizen. Si Tizen Studio está instalado y existe un
+Empaqueta la misma app web del APK (empaquetar-web.mjs: un solo telon.js rebajado para
+el Chromium de Tizen 6.5), le suma config.xml y el ícono, y la deja en build/tizen. Si Tizen Studio está instalado y existe un
 perfil de certificados, además firma y genera build/Telon.wgt:
 
   TIZEN_PROFILE=MiPerfil npm run build:tizen
@@ -16,54 +16,21 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { transformSync } from 'esbuild';
+import { packageWeb, OBJETIVO } from './empaquetar-web.mjs';
 
 // ============================================================
 // CONSTANTES
 // ============================================================
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const WWW = path.join(RAIZ, 'app', 'src', 'main', 'assets', 'www');
 const SALIDA = path.join(RAIZ, 'build', 'tizen');
 const ICONO = path.join(RAIZ, 'app', 'src', 'main', 'res', 'mipmap-xxxhdpi', 'ic_launcher.png');
-// Tizen 6.5 (televisores 2021) trae Chromium 85: sin ?? asignado, inset ni aspect-ratio.
-const OBJETIVO_JS = 'chrome85';
-const ARCHIVOS_ESTATICOS = ['index.html', 'logo.webp'];
-const CARPETAS_ESTATICAS = ['fonts'];
 
 // ============================================================
 // PASOS
 // ============================================================
 
-function cleanOutput() {
-  fs.rmSync(SALIDA, { recursive: true, force: true });
-  fs.mkdirSync(SALIDA, { recursive: true });
-}
-
-function listScripts(html) {
-  return [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]);
-}
-
-// Cada módulo se transforma por separado (sin empaquetar en uno): así el orden y los nombres
-// de archivo siguen siendo los de index.html y los errores en la TV apuntan al módulo correcto.
-function transpileScript(rutaRelativa) {
-  const codigo = fs.readFileSync(path.join(WWW, rutaRelativa), 'utf8');
-  const { code } = transformSync(codigo, { loader: 'js', target: OBJETIVO_JS, sourcefile: rutaRelativa, legalComments: 'inline' });
-  const destino = path.join(SALIDA, rutaRelativa);
-  fs.mkdirSync(path.dirname(destino), { recursive: true });
-  fs.writeFileSync(destino, code);
-}
-
-// El CSS también se rebaja: esbuild convierte inset (Chromium 87) en top/right/bottom/left.
-function transpileStyles() {
-  const css = fs.readFileSync(path.join(WWW, 'style.css'), 'utf8');
-  const { code } = transformSync(css, { loader: 'css', target: OBJETIVO_JS, sourcefile: 'style.css', legalComments: 'inline' });
-  fs.writeFileSync(path.join(SALIDA, 'style.css'), code);
-}
-
-function copyStaticFiles() {
-  ARCHIVOS_ESTATICOS.forEach(archivo => fs.copyFileSync(path.join(WWW, archivo), path.join(SALIDA, archivo)));
-  CARPETAS_ESTATICAS.forEach(carpeta => fs.cpSync(path.join(WWW, carpeta), path.join(SALIDA, carpeta), { recursive: true }));
+function copyTizenFiles() {
   fs.copyFileSync(path.join(RAIZ, 'tizen', 'config.xml'), path.join(SALIDA, 'config.xml'));
   fs.copyFileSync(ICONO, path.join(SALIDA, 'icon.png'));
 }
@@ -100,12 +67,9 @@ function packageUnsigned() {
 // ============================================================
 
 function main() {
-  cleanOutput();
-  const scripts = listScripts(fs.readFileSync(path.join(WWW, 'index.html'), 'utf8'));
-  scripts.forEach(transpileScript);
-  transpileStyles();
-  copyStaticFiles();
-  console.log(`App web lista en ${path.relative(RAIZ, SALIDA)} (${scripts.length} módulos, objetivo ${OBJETIVO_JS}).`);
+  packageWeb(SALIDA);
+  copyTizenFiles();
+  console.log(`App web lista en ${path.relative(RAIZ, SALIDA)} (objetivo ${OBJETIVO}).`);
 
   const perfil = process.env.TIZEN_PROFILE;
   if (perfil && commandExists('tizen')) {

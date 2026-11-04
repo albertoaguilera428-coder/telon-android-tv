@@ -1,6 +1,6 @@
 # 0001 · Una sola app web para Android y Samsung, en scripts clásicos
 
-**Fecha:** 2026-11-04 · **Estado:** aceptada
+**Fecha:** 2026-11-04 · **Estado:** aceptada; la parte de "scripts clásicos" la reemplaza [0007](0007-modulos-es-y-empaquetado.md)
 
 ## Contexto
 

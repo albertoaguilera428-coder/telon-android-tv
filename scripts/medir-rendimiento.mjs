@@ -21,7 +21,7 @@ import { chromium } from 'playwright-core';
 // ============================================================
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const WWW = path.join(RAIZ, 'app', 'src', 'main', 'assets', 'www');
+const WWW = path.join(RAIZ, 'web');
 const CATALOGOS = Number(process.argv[2] || 20);
 const TITULOS = Number(process.argv[3] || 100);
 const REPETICIONES = 20;
