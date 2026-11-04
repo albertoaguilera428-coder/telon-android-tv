@@ -399,6 +399,8 @@ body.tv .scroll{padding-top:104px;gap:44px}
 body.tv .head{padding:120px var(--margen) 6px}
 body.tv .head+.scroll{padding-top:16px}
 body.tv .head+.tabs{margin-top:16px}
+body.tv .tabs+.scroll{padding-top:8px}
+body.tv .head p{font-size:24px;line-height:36px;max-width:1100px}
 body.tv .head h1{font-size:52px}
 body.tv .tabs{margin:112px var(--margen) 0}
 body.tv .tabs button{font-size:24px;min-height:60px;padding:0 32px}
@@ -445,7 +447,6 @@ body.tv .btn{height:76px;font-size:26px;padding:0 44px}
 
 /* Detalle de serie */
 body.tv .dhero{height:620px;padding:40px var(--margen)}
-body.tv .dhero .iconbtn{width:72px;height:72px}
 body.tv .dbody{padding:0 var(--margen) 56px;margin-top:-380px}
 body.tv .dbody h1{font-size:72px;line-height:1.04}
 body.tv .d-cabecera{gap:64px}
@@ -505,8 +506,27 @@ body.tv .srcopt span{font-size:20px}
 body.tv .center .msg{font-size:26px;line-height:38px;padding:24px 32px}
 body.tv .carga-poster{width:220px}
 body.tv .carga-texto{font-size:28px}
-body.tv .pinfo h2{font-size:40px}
-body.tv .pinfo span{font-size:24px}
+/* Reproductor a escala de sala: controles legibles desde el sofá y lejos de los bordes (overscan). */
+body.tv .pbtn{top:48px;left:var(--margen);width:80px;height:80px}
+body.tv .srcchip{top:48px;right:var(--margen);height:72px;max-width:560px;padding:0 30px;gap:14px;font-size:24px}
+body.tv .srcchip i{width:12px;height:12px}
+body.tv .pbtn svg,body.tv .rail svg{width:40px;height:40px}
+body.tv .rail{right:calc(var(--margen) - 24px);bottom:150px;gap:12px}
+body.tv .rail button{width:120px;min-height:100px;gap:8px;font-size:20px;border-radius:24px}
+body.tv .rail button:focus{background:rgba(11,7,20,.6)}
+body.tv .pinfo{left:var(--margen);right:220px;bottom:64px;gap:10px}
+body.tv .pinfo h2{font-size:52px}
+body.tv .pinfo span{font-size:26px}
+body.tv #player .shade{height:520px}
+body.tv .pbar{height:8px}
+body.tv .center{top:140px;bottom:260px}
+body.tv .center .bubble{width:132px;height:132px}
+body.tv .center .bubble svg{width:56px;height:56px}
+body.tv .aviso-subtitulos{padding:28px 52px;border-radius:28px}
+body.tv .aviso-valor{font-size:56px}
+body.tv .aviso-etiqueta{font-size:22px}
+body.tv .iconbtn{width:72px;height:72px}
+body.tv .iconbtn svg{width:32px;height:32px}
 
 /* Listas y ajustes */
 body.tv .empty{margin:20px var(--margen);padding:44px}

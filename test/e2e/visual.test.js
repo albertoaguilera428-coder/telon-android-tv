@@ -176,6 +176,86 @@ test('la interfaz cabe y se ve bien en celular, tablet, Android TV y Samsung', a
   }
 });
 
+// Las pantallas que no están en el recorrido principal: biblioteca, addons, reproductor, hoja de
+// subtítulos y aviso de actualización. Quedan capturadas para revisarlas y ninguna se desborda.
+const desbordeHorizontal = () => document.documentElement.scrollWidth - window.innerWidth;
+const pulsarAccion = accion => {
+  const boton = document.createElement('button');
+  boton.dataset.act = accion;
+  document.body.appendChild(boton);
+  boton.click();
+  boton.remove();
+};
+
+test('biblioteca, addons, reproductor y avisos se ven bien en los cuatro dispositivos', async (t) => {
+  let navegador;
+  try {
+    navegador = await chromium.launch();
+  } catch (error) {
+    t.skip('Chromium no disponible: ' + error.message.split('\n')[0]);
+    return;
+  }
+  const servidor = await startStaticServer();
+  const base = `http://127.0.0.1:${servidor.address().port}/index.html`;
+  fs.mkdirSync(CAPTURAS, { recursive: true });
+  try {
+    for (const dispositivo of DISPOSITIVOS) {
+      await t.test(dispositivo.nombre, async () => {
+        const contexto = await navegador.newContext({ viewport: dispositivo.viewport, deviceScaleFactor: dispositivo.escala, hasTouch: dispositivo.tactil, isMobile: dispositivo.tactil || Boolean(dispositivo.respetaMeta) });
+        await contexto.addInitScript(platformInitScript(dispositivo.modo));
+        await contexto.route(url => !url.href.startsWith(base.replace('index.html', '')), answerFromFixtures);
+        const pagina = await contexto.newPage();
+        const errores = [];
+        pagina.on('pageerror', error => errores.push(error.message));
+        const capturar = nombre => pagina.screenshot({ path: path.join(CAPTURAS, `${dispositivo.nombre}-${nombre}.png`) });
+        const desbordes = {};
+        const medir = async nombre => { desbordes[nombre] = await pagina.evaluate(desbordeHorizontal); };
+
+        await pagina.goto(base);
+        await pagina.waitForSelector('.card');
+        // Guarda dos títulos para que la biblioteca tenga contenido.
+        for (const clave of ['tt001', 'tt002']) {
+          await pagina.click(`.card[data-k*="${clave}"]`);
+          await pagina.waitForSelector('[data-act="savelib"]');
+          await pagina.click('[data-act="savelib"]');
+          await pagina.evaluate(() => window.telonBack());
+        }
+        await pagina.evaluate(pulsarAccion, 'tab:lib');
+        await pagina.waitForSelector('.grid3 .card');
+        await medir('biblioteca'); await capturar('biblioteca');
+
+        await pagina.evaluate(pulsarAccion, 'tab:addons');
+        await pagina.waitForSelector('.addwrap');
+        await medir('addons'); await capturar('addons');
+
+        await pagina.evaluate(pulsarAccion, 'tab:home');
+        await pagina.waitForSelector('.card[data-k*="tt001"]');
+        await pagina.click('.card[data-k*="tt001"]');
+        await pagina.waitForSelector('[data-act="play:0"]');
+        await pagina.click('[data-act="play:0"]');
+        await pagina.waitForSelector('#player .rail');
+        await pagina.waitForTimeout(400);
+        await medir('reproductor'); await capturar('reproductor');
+        await pagina.click('[data-p="subs"]');
+        await pagina.waitForSelector('.sheet');
+        await medir('subtitulos'); await capturar('subtitulos');
+        await pagina.evaluate(() => { window.telonBack(); window.telonBack(); window.telonBack(); });
+
+        await pagina.evaluate(() => window.Telon.ui.updateBanner.showUpdateBanner({ version: 3, notes: 'Episodios más rápidos y un diseño nuevo.', url: 'https://ejemplo.com/telon.apk' }));
+        await pagina.waitForSelector('.modal');
+        await medir('actualizacion'); await capturar('actualizacion');
+        await contexto.close();
+
+        assert.deepEqual(errores, []);
+        for (const [pantalla, desborde] of Object.entries(desbordes)) assert.ok(desborde <= 0, `${pantalla} se desborda ${desborde}px`);
+      });
+    }
+  } finally {
+    await navegador.close();
+    servidor.close();
+  }
+});
+
 // El WebView de Android carga la app desde file://: ahí la CSP y las rutas relativas se comportan
 // distinto que por HTTP, así que se prueba también así.
 test('cargada desde file:// (como el WebView de Android) funciona sin violar la CSP', async (t) => {
