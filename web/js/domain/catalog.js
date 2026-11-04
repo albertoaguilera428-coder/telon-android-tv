@@ -22,9 +22,9 @@ const FILTROS_VACIOS = { pais: TODOS, tipo: TODOS, genero: TODOS };
 // ============================================================
 
 // Los catálogos que exigen un parámetro (género, búsqueda…) no se pueden mostrar sin él.
-const needsExtra = catalogo => Boolean((catalogo.extra || []).some(e => e.isRequired) || (catalogo.extraRequired || []).length);
-const supportsSearch = catalogo => (catalogo.extra || []).some(e => e.name === 'search') || (catalogo.extraSupported || []).includes('search');
-const keepValidMetas = metas => (metas || []).filter(m => m && m.id && m.name);
+const needsExtra = catalogo => Boolean(catalogo.extra?.some(e => e.isRequired) || catalogo.extraRequired?.length);
+const supportsSearch = catalogo => Boolean(catalogo.extra?.some(e => e.name === 'search') || catalogo.extraSupported?.includes('search'));
+const keepValidMetas = metas => (metas ? metas.filter(m => m && m.id && m.name) : []);
 // Un recurso del manifest puede ser un texto ("stream") o un objeto ({ name: "stream", … }).
 const listResourceNames = manifest => [...new Set((manifest.resources || []).map(r => typeof r === 'string' ? r : r.name))];
 
@@ -42,18 +42,21 @@ function collectFilterOptions(filas) {
   };
 }
 
-// Si al recargar ya no existe la opción elegida (otro addon, otro catálogo), vuelve a "Todo".
+// Si al recargar ya no existe la opción elegida (otro addon, otro catálogo), vuelve a "Todo"
+// ("Todo" nunca está entre las opciones, así que se queda igual).
+const keepIfAvailable = (valor, opciones) => (opciones.includes(valor) ? valor : TODOS);
+
 function resetStaleFilters(filtros, { codigosPais, generos, tipos }) {
   return {
-    pais: filtros.pais !== TODOS && !codigosPais.includes(filtros.pais) ? TODOS : filtros.pais,
-    genero: filtros.genero !== TODOS && !generos.includes(filtros.genero) ? TODOS : filtros.genero,
-    tipo: filtros.tipo !== TODOS && !tipos.includes(filtros.tipo) ? TODOS : filtros.tipo
+    pais: keepIfAvailable(filtros.pais, codigosPais),
+    genero: keepIfAvailable(filtros.genero, generos),
+    tipo: keepIfAvailable(filtros.tipo, tipos)
   };
 }
 
 function applyFilters(filas, filtros) {
   const pasaFiltros = m => (filtros.pais === TODOS || getCountryCode(m) === filtros.pais)
-    && (filtros.genero === TODOS || (m.genres || []).includes(filtros.genero));
+    && (filtros.genero === TODOS || Boolean(m.genres?.includes(filtros.genero)));
   return filas
     .map(f => ({ ...f, metas: f.metas.filter(pasaFiltros) }))
     .filter(f => f.metas.length && (filtros.tipo === TODOS || f.cat.type === filtros.tipo));
