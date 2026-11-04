@@ -10,11 +10,14 @@ los catálogos que declaran soportarla.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, logIgnored } = Telon.util;
-  const { getJSON, buildAddonUrl, getCountryCode, getCountryLabel } = Telon.addonClient;
-  const { estado, perfiles, getEnabledAddons } = Telon.state;
-  const { registerCard, spinnerHTML, posterHTML, cardHTML, progressPercent, emptyAddonsHTML, miniAvatarHTML } = Telon.ui.components;
-  const ICONOS = Telon.ICONOS;
+  const { $, escapeHTML, colorFor } = Telon.ui.dom;
+  const { getCountryCode, getCountryLabel } = Telon.domain.countries;
+  const { collectFilterOptions, resetStaleFilters, applyFilters, hasActiveFilters } = Telon.domain.catalog;
+  const { progressPercent, continueWatching } = Telon.domain.progress;
+  const { estado, perfiles } = Telon.app.state;
+  const { loadCatalogs, searchCatalogs } = Telon.app.catalogService;
+  const { registerCard, spinnerHTML, posterHTML, cardHTML, emptyAddonsHTML, miniAvatarHTML } = Telon.ui.components;
+  const ICONOS = Telon.ui.ICONOS;
 
   // ============================================================
   // CONSTANTES
@@ -22,11 +25,9 @@ los catálogos que declaran soportarla.
 
   const ETIQUETAS_TIPO = { series: 'Series', movie: 'Películas', short: 'Cortos' };
   const MAXIMO_CHIPS_GENERO = 12;
-  const MAXIMO_CONTINUAR_VIENDO = 10;
   const ID_SOLOLATINO = 'app.telon.sololatino';
   // Encabezados de grupo más amigables que el nombre técnico de cada addon virtual.
   const ETIQUETAS_GRUPO = { 'app.telon.sololatino': 'Series', 'app.telon.nartodrama': 'Dramas Cortos' };
-  const TODOS = 'all';
 
   // ============================================================
   // ESQUELETO
@@ -44,40 +45,15 @@ los catálogos que declaran soportarla.
   // FILTROS
   // ============================================================
 
-  const unique = lista => [...new Set(lista.filter(Boolean))];
-
-  function collectFilterOptions(filas) {
-    return {
-      codigosPais: unique(filas.flatMap(f => f.metas.map(getCountryCode))),
-      generos: unique(filas.flatMap(f => f.metas.flatMap(m => m.genres || []))).sort(),
-      tipos: unique(filas.map(f => f.cat.type))
-    };
-  }
-
-  // Si al recargar ya no existe la opción elegida (otro addon, otro catálogo), volvemos a "Todo".
-  function resetStaleFilters({ codigosPais, generos, tipos }) {
-    if (estado.filtroPais !== TODOS && !codigosPais.includes(estado.filtroPais)) estado.filtroPais = TODOS;
-    if (estado.filtroGenero !== TODOS && !generos.includes(estado.filtroGenero)) estado.filtroGenero = TODOS;
-    if (estado.filtroTipo !== TODOS && !tipos.includes(estado.filtroTipo)) estado.filtroTipo = TODOS;
-  }
-
   const chipHTML = (activo, accion, texto) => `<button class="chip ${activo ? 'on' : ''}" data-act="${accion}">${escapeHTML(texto)}</button>`;
 
-  function filterChipsHTML({ codigosPais, generos, tipos }) {
+  function filterChipsHTML({ codigosPais, generos, tipos }, filtros) {
     if (tipos.length <= 1 && !codigosPais.length && !generos.length) return '';
-    const sinFiltros = estado.filtroPais === TODOS && estado.filtroTipo === TODOS && estado.filtroGenero === TODOS;
-    const chipsTipo = tipos.length > 1 ? tipos.map(t => chipHTML(estado.filtroTipo === t, 'ftype:' + escapeHTML(t), ETIQUETAS_TIPO[t] || t)).join('') : '';
-    const chipsPais = codigosPais.map(c => chipHTML(estado.filtroPais === c, 'filter:' + escapeHTML(c), getCountryLabel(c))).join('');
-    const chipsGenero = generos.slice(0, MAXIMO_CHIPS_GENERO).map(g => chipHTML(estado.filtroGenero === g, 'fgenre:' + escapeHTML(g), g)).join('');
+    const sinFiltros = !hasActiveFilters(filtros);
+    const chipsTipo = tipos.length > 1 ? tipos.map(t => chipHTML(filtros.tipo === t, 'ftype:' + escapeHTML(t), ETIQUETAS_TIPO[t] || t)).join('') : '';
+    const chipsPais = codigosPais.map(c => chipHTML(filtros.pais === c, 'filter:' + escapeHTML(c), getCountryLabel(c))).join('');
+    const chipsGenero = generos.slice(0, MAXIMO_CHIPS_GENERO).map(g => chipHTML(filtros.genero === g, 'fgenre:' + escapeHTML(g), g)).join('');
     return `<div class="chips"><button class="chip ${sinFiltros ? 'on' : ''}" data-act="filterreset">Todo</button>${chipsTipo}${chipsPais}${chipsGenero}</div>`;
-  }
-
-  function applyFilters(filas) {
-    const pasaFiltros = m => (estado.filtroPais === TODOS || getCountryCode(m) === estado.filtroPais)
-      && (estado.filtroGenero === TODOS || (m.genres || []).includes(estado.filtroGenero));
-    return filas
-      .map(f => ({ ...f, metas: f.metas.filter(pasaFiltros) }))
-      .filter(f => f.metas.length && (estado.filtroTipo === TODOS || f.cat.type === estado.filtroTipo));
   }
 
   // ============================================================
@@ -98,7 +74,7 @@ los catálogos que declaran soportarla.
   }
 
   function continueWatchingHTML() {
-    const recientes = Object.values(estado.historial).filter(h => h.t > 1).sort((a, b) => b.ts - a.ts).slice(0, MAXIMO_CONTINUAR_VIENDO);
+    const recientes = continueWatching(estado.historial);
     if (!recientes.length) return '';
     const tarjetas = recientes.map(h => {
       const barra = `<div class="prog"><i style="width:${progressPercent(h)}%"></i></div>`;
@@ -141,40 +117,30 @@ los catálogos que declaran soportarla.
     const filas = estado.filas || [];
     if (!filas.length) { contenedor.innerHTML = noCatalogsHTML(); return; }
     const opciones = collectFilterOptions(filas);
-    resetStaleFilters(opciones);
-    const visibles = applyFilters(filas);
+    estado.filtros = resetStaleFilters(estado.filtros, opciones);
+    const visibles = applyFilters(filas, estado.filtros);
     const avisoErrores = estado.filasConError ? `<p class="hint" style="padding:0 16px">${estado.filasConError} catálogo(s) no respondieron.</p>` : '';
-    contenedor.innerHTML = filterChipsHTML(opciones) + heroHTML(visibles) + continueWatchingHTML() + catalogSectionsHTML(visibles) + avisoErrores;
+    contenedor.innerHTML = filterChipsHTML(opciones, estado.filtros) + heroHTML(visibles) + continueWatchingHTML() + catalogSectionsHTML(visibles) + avisoErrores;
   }
 
   // ============================================================
   // CARGA DE CATÁLOGOS Y BÚSQUEDA
   // ============================================================
 
-  const toRow = (addon, catalogo) => respuesta => ({ addon, cat: catalogo, metas: (respuesta.metas || []).filter(m => m && m.id && m.name) });
-
-  // Los catálogos que exigen un parámetro (género, búsqueda…) no se pueden mostrar sin él.
-  const needsExtra = catalogo => (catalogo.extra || []).some(e => e.isRequired) || (catalogo.extraRequired || []).length;
-  const supportsSearch = catalogo => (catalogo.extra || []).some(e => e.name === 'search') || (catalogo.extraSupported || []).includes('search');
+  // Si se pide cargar otra vez (recargar addons, cambiar de perfil) mientras una carga sigue en
+  // curso, la respuesta vieja puede llegar después de la nueva y pisarla. El número de
+  // secuencia descarta esas respuestas tardías.
+  let secuenciaCarga = 0;
 
   async function loadHome() {
+    const secuencia = ++secuenciaCarga;
     estado.cargando = true;
     estado.filasConError = 0;
     if (estado.pestana === 'home') homeBody();
-    const peticiones = [];
-    for (const addon of getEnabledAddons()) {
-      for (const catalogo of (addon.manifest.catalogs || [])) {
-        if (needsExtra(catalogo)) continue;
-        peticiones.push(getJSON(buildAddonUrl(addon, 'catalog', catalogo.type, catalogo.id))
-          .then(toRow(addon, catalogo))
-          .catch(error => {
-            logIgnored('El catálogo ' + catalogo.id + ' no respondió', error);
-            estado.filasConError++;
-            return null;
-          }));
-      }
-    }
-    estado.filas = (await Promise.all(peticiones)).filter(f => f && f.metas.length);
+    const { filas, errores } = await loadCatalogs();
+    if (secuencia !== secuenciaCarga) return;
+    estado.filas = filas;
+    estado.filasConError = errores;
     estado.cargando = false;
     if (estado.pestana === 'home') homeBody();
   }
@@ -196,24 +162,12 @@ los catálogos que declaran soportarla.
     if (!consulta) { estado.filasBusqueda = null; homeBody(); return; }
     estado.buscando = true;
     homeBody();
-    const peticiones = [];
-    for (const addon of getEnabledAddons()) {
-      for (const catalogo of (addon.manifest.catalogs || [])) {
-        if (!supportsSearch(catalogo)) continue;
-        peticiones.push(getJSON(buildAddonUrl(addon, 'catalog', catalogo.type, catalogo.id, 'search=' + encodeURIComponent(consulta)))
-          .then(toRow(addon, catalogo))
-          .catch(error => {
-            logIgnored('La búsqueda en ' + catalogo.id + ' falló', error);
-            return null;
-          }));
-      }
-    }
-    const resultados = (await Promise.all(peticiones)).filter(f => f && f.metas.length);
+    const resultados = await searchCatalogs(consulta);
     if (secuencia !== secuenciaBusqueda) return;
     estado.filasBusqueda = resultados;
     estado.buscando = false;
     homeBody();
   }
 
-  Telon.ui.home = { homeHTML, homeBody, loadHome, runSearch, collectFilterOptions, applyFilters };
+  Telon.ui.home = { homeHTML, homeBody, loadHome, runSearch };
 })(window.Telon = window.Telon || {});

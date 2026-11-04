@@ -9,13 +9,15 @@ pestaña activa y arma la barra de navegación.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, toInitials, store } = Telon.util;
-  const { getJSON, normalizeBase, resourceName } = Telon.addonClient;
-  const { estado, perfiles, saveAddons } = Telon.state;
-  const { toast, registerCard, posterHTML, progressPercent, pfAvatarHTML } = Telon.ui.components;
+  const { $, escapeHTML, colorFor, toInitials } = Telon.ui.dom;
+  const plataforma = Telon.infra.platform;
+  const { listResourceNames } = Telon.domain.catalog;
+  const { progressPercent, sortByRecent } = Telon.domain.progress;
+  const { estado, perfiles, preferencias, sesion } = Telon.app.state;
+  const { installAddon } = Telon.app.catalogService;
+  const { toast, registerCard, posterHTML, pfAvatarHTML } = Telon.ui.components;
   const { homeHTML, homeBody, loadHome } = Telon.ui.home;
-  const plataforma = Telon.platform;
-  const ICONOS = Telon.ICONOS;
+  const ICONOS = Telon.ui.ICONOS;
 
   // ============================================================
   // CONSTANTES
@@ -45,7 +47,7 @@ pestaña activa y arma la barra de navegación.
 
   function addonItemHTML(addon) {
     const m = addon.manifest;
-    const recursos = [...new Set((m.resources || []).map(resourceName))];
+    const recursos = listResourceNames(m);
     const logo = m.logo ? `<img src="${escapeHTML(m.logo)}" alt="" onerror="this.remove()">` : '';
     // Quitar un addon pide dos toques: el primero arma la confirmación, el segundo borra.
     const confirmando = estado.confirmarBorrado === addon.base;
@@ -69,23 +71,16 @@ pestaña activa y arma la barra de navegación.
   }
 
   async function install() {
-    const base = normalizeBase(estado.urlNueva);
-    if (!base) return;
+    if (!estado.urlNueva.trim()) return;
     estado.instalando = true;
     estado.errorInstalar = '';
     render();
     try {
-      const manifest = await getJSON(base + '/manifest.json');
-      if (!manifest || !manifest.id || !manifest.name) throw new Error('el manifest no tiene «id» o «name»');
-      // Reinstalar el mismo addon (misma URL o mismo id) lo actualiza en vez de duplicarlo.
-      const indiceExistente = estado.addons.findIndex(a => a.base === base || a.manifest.id === manifest.id);
-      const registro = { base, manifest, enabled: true };
-      if (indiceExistente >= 0) estado.addons[indiceExistente] = registro; else estado.addons.push(registro);
-      saveAddons();
+      const manifest = await installAddon(estado.urlNueva);
       estado.urlNueva = '';
       estado.filas = null;
       estado.filasBusqueda = null;
-      toast('Instalado: ' + manifest.name);
+      if (manifest) toast('Instalado: ' + manifest.name);
     } catch (error) {
       estado.errorInstalar = 'No se pudo instalar: ' + error.message + '. Revisa el enlace y que el servidor esté encendido.';
     }
@@ -107,7 +102,7 @@ pestaña activa y arma la barra de navegación.
   }
 
   function historyListHTML() {
-    const entradas = Object.values(estado.historial).sort((a, b) => b.ts - a.ts);
+    const entradas = sortByRecent(estado.historial);
     if (!entradas.length) return `<div class="empty"><h3>Sin historial</h3><p>Lo que veas aparecerá aquí para retomarlo.</p></div>`;
     const filas = entradas.map(e => `<button class="hrow" data-act="resume" data-k="${escapeHTML(e.key)}">${posterHTML({ name: e.name, poster: e.poster })}<div class="itext" style="flex:1"><b>${escapeHTML(e.name)}</b><span>${escapeHTML(e.label || '')}</span><div class="prog" style="position:static;margin-top:6px;background:#4A4458"><i style="width:${progressPercent(e)}%"></i></div></div></button>`).join('');
     return `<div class="list" style="padding-top:16px">${filas}</div>`;
@@ -135,22 +130,22 @@ pestaña activa y arma la barra de navegación.
   }
 
   function accountHTML() {
-    const sesion = store.get('loginProvider', null);
-    if (!sesion) {
+    const datosSesion = sesion.get();
+    if (!datosSesion) {
       return `<div class="auth-form"><input id="authname" type="text" placeholder="Nombre" class="auth-input"><input id="authemail" type="email" placeholder="Correo electrónico" class="auth-input"><input id="authpass" type="password" placeholder="Contraseña (mín. 6 caracteres)" class="auth-input"><button class="btn pri" data-act="register" style="width:100%;margin-top:8px">Crear cuenta</button><div style="text-align:center;color:var(--texto-tenue);margin:12px 0;font-size:13px">¿Ya tienes cuenta?</div><button class="btn out" data-act="emaillogin" style="width:100%">Iniciar sesión</button></div>`;
     }
-    const marcaSinVerificar = sesion.verified ? '' : ' · <em style="color:var(--dorado)">Sin verificar</em>';
-    const tarjetaSesion = `<div class="set-card"><div class="set-icon">${ICONOS.user}</div><div class="itext"><b>${escapeHTML(sesion.name || sesion.email)}</b><span>${escapeHTML(sesion.email)}${marcaSinVerificar}</span></div><button class="btn out" style="height:36px;font-size:13px" data-act="logout">Cerrar sesión</button></div>`;
-    return tarjetaSesion + (sesion.verified ? '' : verificationCardsHTML());
+    const marcaSinVerificar = datosSesion.verified ? '' : ' · <em style="color:var(--dorado)">Sin verificar</em>';
+    const tarjetaSesion = `<div class="set-card"><div class="set-icon">${ICONOS.user}</div><div class="itext"><b>${escapeHTML(datosSesion.name || datosSesion.email)}</b><span>${escapeHTML(datosSesion.email)}${marcaSinVerificar}</span></div><button class="btn out" style="height:36px;font-size:13px" data-act="logout">Cerrar sesión</button></div>`;
+    return tarjetaSesion + (datosSesion.verified ? '' : verificationCardsHTML());
   }
 
   function settingsHTML() {
     return `<div class="head"><h1>Ajustes</h1></div><main class="scroll" style="padding-top:12px">
     <div class="set-section"><label>Cuenta</label>${profileCardHTML()}${accountHTML()}</div>
     <div class="set-section"><label>Reproducción</label>
-      <div class="set-card" data-act="setquality"><div class="itext"><b>Calidad preferida</b><span>${escapeHTML(store.get('quality', 'Auto'))}</span></div><span class="set-arrow">${ICONOS.back}</span></div>
-      <div class="set-card"><div class="itext"><b>Subtítulos automáticos</b><span>Activar subtítulos si están disponibles</span></div><button class="switch" role="switch" aria-checked="${store.get('autoSubs', true)}" data-act="togglesubs"><i></i></button></div>
-      <div class="set-card"><div class="itext"><b>Subtítulos en dramas cortos</b><span>Activar subtítulos en series de Narto Drama</span></div><button class="switch" role="switch" aria-checked="${store.get('nartoSubs', false)}" data-act="togglenartosubs"><i></i></button></div></div>
+      <div class="set-card" data-act="setquality"><div class="itext"><b>Calidad preferida</b><span>${escapeHTML(preferencias.quality())}</span></div><span class="set-arrow">${ICONOS.back}</span></div>
+      <div class="set-card"><div class="itext"><b>Subtítulos automáticos</b><span>Activar subtítulos si están disponibles</span></div><button class="switch" role="switch" aria-checked="${preferencias.autoSubs()}" data-act="togglesubs"><i></i></button></div>
+      <div class="set-card"><div class="itext"><b>Subtítulos en dramas cortos</b><span>Activar subtítulos en series de Narto Drama</span></div><button class="switch" role="switch" aria-checked="${preferencias.nartoSubs()}" data-act="togglenartosubs"><i></i></button></div></div>
     <div class="set-section"><label>Datos</label>
       <div class="set-card" data-act="clearhist"><div class="itext"><b>Borrar historial</b><span>${Object.keys(estado.historial).length} elementos</span></div></div>
       <div class="set-card" data-act="clearlib"><div class="itext"><b>Vaciar mi lista</b><span>${estado.biblioteca.length} elementos guardados</span></div></div>

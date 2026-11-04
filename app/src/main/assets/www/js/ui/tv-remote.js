@@ -10,7 +10,7 @@ video; en el resto de la app mueven el foco al elemento más cercano en esa dire
 (function (Telon) {
   'use strict';
 
-  const { estado } = Telon.state;
+  const { estado } = Telon.app.state;
   const { closePlayer, loadVideo, togglePlayback } = Telon.ui.player;
 
   // ============================================================

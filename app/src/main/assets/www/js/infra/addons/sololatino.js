@@ -10,8 +10,10 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
 (function (Telon) {
   'use strict';
 
-  const { logIgnored } = Telon.util;
-  const { politeFetch } = Telon.addonClient;
+  const { logIgnored } = Telon.infra.log;
+  const { politeFetch } = Telon.infra.http;
+  const { registerVirtualAddon } = Telon.infra.addonClient;
+  const { createBoundedCache } = Telon.infra.cache;
 
   // ============================================================
   // CONSTANTES
@@ -21,6 +23,8 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   const URL_FUENTES_INSANOS = 'https://insanos.net/sololatino/stream/';
   const URL_CINEMETA = 'https://v3-cinemeta.strem.io';
   const DURACION_CACHE_MS = 600000;
+  // Cada búsqueda queda guardada; sin tope, una sesión larga solo hace crecer la memoria.
+  const MAXIMO_EN_CACHE = 100;
   const RUTAS_CATALOGO_SL = { 'sl-series': '/series', 'sl-animes': '/animes', 'sl-doramas': '/doramas', 'sl-peliculas': '/peliculas' };
   // Algunas series no traen su ID de IMDb en SoloLatino; para esas dejamos el slug sembrado a mano.
   const SLUGS_POR_IMDB = { 'tt0096697': 'los-simpson' };
@@ -42,7 +46,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     },
     enabled: true,
     // Memoria entre pantallas: IDs de IMDb, slugs y nombres que vamos descubriendo por ID de video.
-    _cache: {}, _urlsVideo: {}, _idsImdb: {}, _slugs: {}, _nombres: {}
+    _idsImdb: {}, _slugs: {}, _nombres: {}
   };
 
   // ============================================================
@@ -59,13 +63,8 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     return (await politeFetch(url)).json();
   }
 
-  async function withSlCache(clave, cargador) {
-    const entrada = ADDON_SOLOLATINO._cache[clave];
-    if (entrada && Date.now() - entrada.ts < DURACION_CACHE_MS) return entrada.valor;
-    const valor = await cargador();
-    ADDON_SOLOLATINO._cache[clave] = { valor, ts: Date.now() };
-    return valor;
-  }
+  const cacheSl = createBoundedCache({ maximo: MAXIMO_EN_CACHE, vidaMs: DURACION_CACHE_MS });
+  const withSlCache = (clave, cargador) => cacheSl.getOrLoad(clave, cargador);
 
   const textOf = (documento, selector) => {
     const nodo = documento.querySelector(selector);
@@ -196,7 +195,6 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     const html = await withSlCache('meta:' + slug, () => slFetch(pagePath(tipo, slug)));
     const ficha = slParseMeta(html, 'sl-' + slug);
     ficha.videos.forEach(v => {
-      if (v._url) ADDON_SOLOLATINO._urlsVideo[v.id] = v._url;
       if (ficha._idImdb) ADDON_SOLOLATINO._idsImdb[v.id] = ficha._idImdb;
       ADDON_SOLOLATINO._slugs[v.id] = slug;
     });
@@ -321,6 +319,6 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     return { err: 'not found' };
   }
 
-  Telon.addonClient.registerVirtualAddon(ADDON_SOLOLATINO, respond);
-  Telon.sololatino = { ADDON_SOLOLATINO, respond, slParseCards, slParseMeta, slugFromName, seedKnownSlug, warmUpSlugForImdb };
+  registerVirtualAddon(ADDON_SOLOLATINO, respond);
+  Telon.infra.sololatino = { cacheSl, ADDON_SOLOLATINO, respond, slParseCards, slParseMeta, slugFromName, seedKnownSlug, warmUpSlugForImdb };
 })(window.Telon = window.Telon || {});

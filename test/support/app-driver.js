@@ -103,6 +103,14 @@ function loadApp(opciones = {}) {
   return createDriver(dom, log, prompts, errores);
 }
 
+// Lo que no es comportamiento no entra en la captura: comentarios y saltos de línea de index.html
+// (cambian con cada módulo agregado) y el aviso de subtítulos, que es pasajero (se borra a los 900 ms
+// y si sigue en pantalla o no depende de la carga de la máquina).
+const normalizeBody = html => html
+  .replace(/<!--[\s\S]*?-->/g, '')
+  .replace(/<div id="_subFlash"[^>]*>.*?<\/div>/, '')
+  .replace(/\n{2,}/g, '\n');
+
 function createDriver(dom, log, prompts, errores) {
   const w = dom.window;
   const settle = async (veces = 1) => { for (let i = 0; i < veces; i++) await new Promise(r => setTimeout(r, PASO_ESPERA_MS)); };
@@ -125,13 +133,11 @@ function createDriver(dom, log, prompts, errores) {
     campo.dispatchEvent(new w.Event('input', { bubbles: true }));
   };
   const storage = () => Object.fromEntries(Object.keys(w.localStorage).sort().map(k => [k, w.localStorage.getItem(k)]));
-  // El aviso de subtítulos es pasajero (se borra a los 900 ms): si sigue o no en pantalla depende de
-  // la carga de la máquina, así que no forma parte de la captura.
-  const snapshot = nombre => ({ nombre, body: w.document.body.innerHTML.replace(/<div id="_subFlash"[^>]*>.*?<\/div>/, ''), storage: storage(), log: log.splice(0) });
+  const snapshot = nombre => ({ nombre, body: normalizeBody(w.document.body.innerHTML), storage: storage(), log: log.splice(0) });
   return { window: w, document: w.document, Telon: w.Telon, log, prompts, errores, settle, click, act, type, storage, snapshot, close: () => w.close() };
 }
 
 // Los objetos creados dentro de jsdom tienen otro Object.prototype; para compararlos los pasamos a JSON.
 const plain = valor => JSON.parse(JSON.stringify(valor));
 
-module.exports = { WWW, loadApp, listScripts, readIndex, plain };
+module.exports = { WWW, loadApp, listScripts, readIndex, plain, normalizeBody };

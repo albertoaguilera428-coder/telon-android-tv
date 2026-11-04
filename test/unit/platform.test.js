@@ -16,24 +16,24 @@ const viewport = app => app.document.querySelector('meta[name="viewport"]').getA
 // ============================================================
 
 test('Android TV usa la interfaz de TV con lienzo de 1920 px', () => {
-  const app = loadApp({ modo: 'android-tv', hasta: 'js/platform.js' });
-  assert.equal(app.Telon.platform.nombre, 'android');
-  assert.equal(app.Telon.platform.esTv, true);
-  assert.equal(app.Telon.platform.admiteEmbed, true);
+  const app = loadApp({ modo: 'android-tv', hasta: 'js/infra/platform.js' });
+  assert.equal(app.Telon.infra.platform.nombre, 'android');
+  assert.equal(app.Telon.infra.platform.esTv, true);
+  assert.equal(app.Telon.infra.platform.admiteEmbed, true);
   assert.equal(viewport(app), 'width=1920');
   app.close();
 });
 
 test('un celular o tablet Android usa la interfaz táctil con el ancho real', () => {
-  const app = loadApp({ modo: 'android-phone', hasta: 'js/platform.js' });
-  assert.equal(app.Telon.platform.esTv, false);
+  const app = loadApp({ modo: 'android-phone', hasta: 'js/infra/platform.js' });
+  assert.equal(app.Telon.infra.platform.esTv, false);
   assert.match(viewport(app), /width=device-width/);
   app.close();
 });
 
 test('Samsung (Tizen) es TV, no admite embeds ni actualizaciones por APK', () => {
-  const app = loadApp({ modo: 'tizen', hasta: 'js/platform.js' });
-  const plataforma = app.Telon.platform;
+  const app = loadApp({ modo: 'tizen', hasta: 'js/infra/platform.js' });
+  const plataforma = app.Telon.infra.platform;
   assert.equal(plataforma.nombre, 'tizen');
   assert.equal(plataforma.esTv, true);
   assert.equal(plataforma.admiteEmbed, false);
@@ -43,7 +43,7 @@ test('Samsung (Tizen) es TV, no admite embeds ni actualizaciones por APK', () =>
 });
 
 test('en Samsung se registran las teclas multimedia del control', () => {
-  const app = loadApp({ modo: 'tizen', hasta: 'js/platform.js' });
+  const app = loadApp({ modo: 'tizen', hasta: 'js/infra/platform.js' });
   assert.ok(app.log.includes('tizen registerKey MediaPlayPause'));
   assert.equal(app.log.filter(l => l.startsWith('tizen registerKey')).length, 8);
   app.close();
@@ -54,8 +54,8 @@ test('en Samsung se registran las teclas multimedia del control', () => {
 // ============================================================
 
 test('las teclas de Tizen se traducen a los códigos de Android', () => {
-  const app = loadApp({ modo: 'tizen', hasta: 'js/platform.js' });
-  const traducir = app.Telon.platform.translateTizenKey;
+  const app = loadApp({ modo: 'tizen', hasta: 'js/infra/platform.js' });
+  const traducir = app.Telon.infra.platform.translateTizenKey;
   assert.equal(traducir(38), 19);
   assert.equal(traducir(13), 66);
   assert.equal(traducir(10252), 85);
@@ -65,7 +65,7 @@ test('las teclas de Tizen se traducen a los códigos de Android', () => {
 });
 
 test('una flecha del control de Samsung llega a window._tvKey', () => {
-  const app = loadApp({ modo: 'tizen', hasta: 'js/platform.js' });
+  const app = loadApp({ modo: 'tizen', hasta: 'js/infra/platform.js' });
   const recibidas = [];
   app.window._tvKey = codigo => recibidas.push(codigo);
   app.document.dispatchEvent(new app.window.KeyboardEvent('keydown', { keyCode: 39 }));
@@ -74,7 +74,7 @@ test('una flecha del control de Samsung llega a window._tvKey', () => {
 });
 
 test('Atrás en Samsung cierra la app solo si no queda nada abierto', () => {
-  const app = loadApp({ modo: 'tizen', hasta: 'js/platform.js' });
+  const app = loadApp({ modo: 'tizen', hasta: 'js/infra/platform.js' });
   let hayAlgoAbierto = true;
   app.window.telonBack = () => { const respuesta = hayAlgoAbierto; hayAlgoAbierto = false; return respuesta; };
   const atras = () => app.document.dispatchEvent(new app.window.KeyboardEvent('keydown', { keyCode: 10009 }));

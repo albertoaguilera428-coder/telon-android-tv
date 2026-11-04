@@ -1,23 +1,15 @@
 /*
-Telón - Aviso de nueva versión
+Telón - Banner de nueva versión
 Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
-Consulta un version.json publicado en el servidor y, si hay una versión más nueva,
-ofrece descargar el APK. Solo aplica a Android: en Samsung el .wgt se reinstala a mano.
+Si app/update-service.js encuentra una versión más nueva, ofrece descargar el APK.
 */
 (function (Telon) {
   'use strict';
 
-  const { escapeHTML, logIgnored } = Telon.util;
-  const plataforma = Telon.platform;
-
-  // ============================================================
-  // CONSTANTES
-  // ============================================================
-
-  const VERSION_TELON = 2;
-  const URL_VERSION = 'https://insanos.net/telon/version.json';
+  const { escapeHTML } = Telon.ui.dom;
+  const { VERSION_TELON, fetchNewerVersion, downloadUpdate } = Telon.app.updateService;
 
   // ============================================================
   // BANNER
@@ -40,7 +32,7 @@ ofrece descargar el APK. Solo aplica a Android: en Samsung el .wgt se reinstala 
         </div>
       </div>`;
     banner.querySelector('[data-update="install"]').addEventListener('click', () => {
-      if (plataforma.downloadUpdate(String(version.url))) {
+      if (downloadUpdate(version.url)) {
         banner.querySelector('#updateBtns').innerHTML = '<div class="spin"></div><span style="font-size:13px;color:var(--texto-suave)">Descargando…</span>';
       } else {
         window.open(String(version.url));
@@ -52,15 +44,9 @@ ofrece descargar el APK. Solo aplica a Android: en Samsung el .wgt se reinstala 
   }
 
   async function checkForUpdate() {
-    if (!plataforma.admiteActualizacion) return;
-    try {
-      // El parámetro t evita que un proxy o el WebView nos devuelva un version.json viejo.
-      const version = await (await fetch(URL_VERSION + '?t=' + Date.now())).json();
-      if (version.version > VERSION_TELON && version.url) showUpdateBanner(version);
-    } catch (error) {
-      logIgnored('No se pudo consultar si hay versión nueva', error);
-    }
+    const version = await fetchNewerVersion();
+    if (version) showUpdateBanner(version);
   }
 
-  Telon.update = { VERSION_TELON, checkForUpdate, showUpdateBanner };
+  Telon.ui.updateBanner = { checkForUpdate, showUpdateBanner };
 })(window.Telon = window.Telon || {});

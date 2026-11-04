@@ -11,8 +11,9 @@ const fc = require('fast-check');
 const { loadApp } = require('../support/app-driver');
 
 // Carga todo menos main.js: la interfaz queda disponible sin arrancar la app.
-const app = loadApp({ hasta: 'js/auth.js' });
-const { tvRemote, player, components } = app.Telon.ui;
+const app = loadApp({ hasta: 'js/ui/update-banner.js' });
+const { tvRemote } = app.Telon.ui;
+const { progress, episodes, account } = app.Telon.domain;
 test.after(() => app.close());
 
 const rect = (left, top, width = 100, height = 100) => ({ left, top, width, height });
@@ -55,7 +56,7 @@ test('propiedad: el candidato elegido siempre está en la dirección pedida', ()
 
 test('sin duración (transmisión en vivo) retroceder y adelantar mueven 10 s sin saltar al inicio', () => {
   const video = { currentTime: 95, duration: NaN, pause() {}, play: () => Promise.resolve() };
-  app.Telon.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
+  app.Telon.app.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
   tvRemote.handleTvKey(tvRemote.TECLA.RETROCEDER);
   assert.equal(video.currentTime, 85);
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
@@ -63,15 +64,15 @@ test('sin duración (transmisión en vivo) retroceder y adelantar mueven 10 s si
   video.duration = Infinity;
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
   assert.equal(video.currentTime, 105);
-  app.Telon.state.estado.reproductor = null;
+  app.Telon.app.state.estado.reproductor = null;
 });
 
 test('con duración conocida, adelantar no pasa del final', () => {
   const video = { currentTime: 95, duration: 100, pause() {}, play: () => Promise.resolve() };
-  app.Telon.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
+  app.Telon.app.state.estado.reproductor = { video, indice: 0, episodios: [{ id: 'a' }] };
   tvRemote.handleTvKey(tvRemote.TECLA.ADELANTAR);
   assert.equal(video.currentTime, 100);
-  app.Telon.state.estado.reproductor = null;
+  app.Telon.app.state.estado.reproductor = null;
 });
 
 // ============================================================
@@ -81,7 +82,7 @@ test('con duración conocida, adelantar no pasa del final', () => {
 const reproductorFalso = { clave: 'k', referencia: { base: 'b', type: 'series', id: 'tt1' }, ficha: { name: 'Serie', poster: 'p' }, episodios: [{ id: 'e1' }, { id: 'e2', episode: 7 }], indice: 1 };
 
 test('el historial guarda la posición con los nombres de campo que ya existen en los dispositivos', () => {
-  const entrada = player.buildHistoryEntry(reproductorFalso, 120, 1500);
+  const entrada = progress.buildHistoryEntry(reproductorFalso, 120, 1500, 1700000000000);
   assert.deepEqual(Object.keys(entrada).sort(), ['base', 'dur', 'id', 'idx', 'key', 'label', 'name', 'poster', 't', 'total', 'ts', 'type', 'videoId'].sort());
   assert.equal(entrada.t, 120);
   assert.equal(entrada.label, 'Ep. 7');
@@ -89,19 +90,19 @@ test('el historial guarda la posición con los nombres de campo que ya existen e
 });
 
 test('a menos de 3 segundos del final el episodio cuenta como visto (vuelve a 0)', () => {
-  assert.equal(player.buildHistoryEntry(reproductorFalso, 1498, 1500).t, 0);
-  assert.equal(player.buildHistoryEntry(reproductorFalso, 1490, 1500).t, 1490);
+  assert.equal(progress.buildHistoryEntry(reproductorFalso, 1498, 1500, 1).t, 0);
+  assert.equal(progress.buildHistoryEntry(reproductorFalso, 1490, 1500, 1).t, 1490);
 });
 
 test('las películas (un solo video) no llevan etiqueta de episodio', () => {
-  assert.equal(components.episodeLabel([{ id: 'x' }], 0), '');
-  assert.equal(components.episodeLabel([{ id: 'a' }, { id: 'b' }], 1), 'Ep. 2');
+  assert.equal(episodes.episodeLabel([{ id: 'x' }], 0), '');
+  assert.equal(episodes.episodeLabel([{ id: 'a' }, { id: 'b' }], 1), 'Ep. 2');
 });
 
 test('el porcentaje de progreso nunca pasa de 100 ni falla sin duración', () => {
-  assert.equal(components.progressPercent({ t: 50, dur: 100 }), 50);
-  assert.equal(components.progressPercent({ t: 500, dur: 100 }), 100);
-  assert.equal(components.progressPercent({ t: 5, dur: 0 }), 0);
+  assert.equal(progress.progressPercent({ t: 50, dur: 100 }), 50);
+  assert.equal(progress.progressPercent({ t: 500, dur: 100 }), 100);
+  assert.equal(progress.progressPercent({ t: 5, dur: 0 }), 0);
 });
 
 // ============================================================
@@ -109,7 +110,7 @@ test('el porcentaje de progreso nunca pasa de 100 ni falla sin duración', () =>
 // ============================================================
 
 test('el registro valida nombre, correo y largo de la contraseña antes de llamar a Firebase', () => {
-  const validar = app.Telon.auth.validateRegistration;
+  const validar = account.validateRegistration;
   assert.equal(validar(' ', 'a@x.com', 'secreto'), 'Escribe tu nombre');
   assert.equal(validar('Ana', '', 'secreto'), 'Escribe tu correo');
   assert.equal(validar('Ana', 'a@x.com', '12345'), 'La contraseña debe tener al menos 6 caracteres');
@@ -143,7 +144,7 @@ test('a igual puntaje gana el primero en el orden de la página', () => {
 });
 
 test('moveTvFocus enfoca la pestaña activa si nada tiene foco y luego se mueve a la derecha', () => {
-  const tv = loadApp({ hasta: 'js/auth.js' });
+  const tv = loadApp({ hasta: 'js/ui/update-banner.js' });
   const doc = tv.document;
   doc.querySelector('#nav').innerHTML = '<button id="a">Inicio</button><button id="b" class="on">Biblioteca</button>';
   doc.querySelector('#screen').innerHTML = '<button id="c">Derecha</button><button id="oculto" hidden>Oculto</button><button id="cero">Sin tamaño</button>';
@@ -160,7 +161,7 @@ test('moveTvFocus enfoca la pestaña activa si nada tiene foco y luego se mueve 
 });
 
 test('OK sobre un elemento enfocado lo activa', () => {
-  const tv = loadApp({ hasta: 'js/auth.js' });
+  const tv = loadApp({ hasta: 'js/ui/update-banner.js' });
   let activado = false;
   tv.document.querySelector('#screen').innerHTML = '<button id="x">X</button>';
   const boton = tv.document.getElementById('x');

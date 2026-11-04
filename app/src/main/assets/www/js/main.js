@@ -9,37 +9,35 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 (function (Telon) {
   'use strict';
 
-  const { $, store, COLORES_PERFIL } = Telon.util;
-  const { fetchRemoteJSON } = Telon.addonClient;
-  const { estado, perfiles, saveAddons, saveLib, saveHist } = Telon.state;
+  const plataforma = Telon.infra.platform;
+  const { toggleFilterValue, FILTROS_VACIOS } = Telon.domain.catalog;
+  const { estado, perfiles, preferencias, clearHistory, clearLibrary, resetAllData } = Telon.app.state;
+  const catalogo = Telon.app.catalogService;
+  const { $, COLORES_PERFIL } = Telon.ui.dom;
   const { toast, findCard } = Telon.ui.components;
   const { homeBody, loadHome, runSearch } = Telon.ui.home;
   const { render, setTab, install } = Telon.ui.screens;
   const { openDetail, renderDetail, closeDetail, toggleLib } = Telon.ui.detail;
   const { openPlayer, closePlayer, playerSheet, playerClick, saveProgress, resume } = Telon.ui.player;
-  const auth = Telon.auth;
-  const plataforma = Telon.platform;
+  const cuenta = Telon.ui.account;
 
   // ============================================================
-  // ADDONS PREDETERMINADOS
+  // CONSTANTES
   // ============================================================
 
-  const ADDONS_PREDETERMINADOS = ['https://insanos.net/cinemeta-es', 'https://insanos.net/sololatino', 'https://insanos.net/narto'];
-  const OPCIONES_CALIDAD = ['Auto', '1080p', '720p', '480p'];
   // Esperamos a que el usuario deje de escribir antes de consultar a todos los addons.
   const ESPERA_BUSQUEDA_MS = 350;
 
-  // SoloLatino primero y Narto al final: así se ordenan los grupos en la pantalla de inicio.
+  // ============================================================
+  // ADDONS
+  // ============================================================
+
   async function reloadAddons() {
     toast('Recargando addons…');
-    const resultados = await Promise.allSettled(ADDONS_PREDETERMINADOS.map(base =>
-      fetchRemoteJSON(base + '/manifest.json').then(manifest => ({ base, manifest, enabled: true }))));
-    const remotos = resultados.filter(r => r.status === 'fulfilled').map(r => r.value);
-    estado.addons = [Telon.sololatino.ADDON_SOLOLATINO, ...remotos, Telon.narto.ADDON_NARTO];
+    // Si mientras tanto empezó otra recarga, esa se encarga de pintar: esta ya no aplica.
+    if (!await catalogo.reloadDefaultAddons()) return;
     estado.filas = null;
     estado.filasBusqueda = null;
-    // También limpia el valor viejo que guardaba los addons virtuales con sus cachés.
-    saveAddons();
     render();
     loadHome();
     toast('Addons recargados');
@@ -89,10 +87,10 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   }
 
   function manageProfiles() {
-    const lista = perfiles.all();
-    const nombreABorrar = prompt('Escribe el nombre del perfil a eliminar:\n(' + lista.map(p => p.name).join(', ') + ')');
+    const nombres = perfiles.all().map(p => p.name).join(', ');
+    const nombreABorrar = prompt('Escribe el nombre del perfil a eliminar:\n(' + nombres + ')');
     if (!nombreABorrar) return;
-    const encontrado = lista.find(p => p.name.toLowerCase() === nombreABorrar.trim().toLowerCase());
+    const encontrado = perfiles.findByName(nombreABorrar);
     if (!encontrado) { toast('Perfil no encontrado'); return; }
     perfiles.remove(encontrado.id);
     toast('Perfil eliminado');
@@ -104,10 +102,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   // ============================================================
 
   function toggleAddon(base) {
-    const addon = estado.addons.find(a => a.base === base);
-    if (!addon) return;
-    addon.enabled = !addon.enabled;
-    saveAddons();
+    if (!catalogo.toggleAddon(base)) return;
     estado.filas = null;
     estado.filasBusqueda = null;
     render();
@@ -115,8 +110,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   function deleteAddon(base) {
     if (estado.confirmarBorrado === base) {
-      estado.addons = estado.addons.filter(a => a.base !== base);
-      saveAddons();
+      catalogo.removeAddon(base);
       estado.filas = null;
       estado.confirmarBorrado = null;
       toast('Addon quitado');
@@ -127,8 +121,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   }
 
   function cycleQuality() {
-    const siguiente = OPCIONES_CALIDAD[(OPCIONES_CALIDAD.indexOf(store.get('quality', 'Auto')) + 1) % OPCIONES_CALIDAD.length];
-    store.set('quality', siguiente);
+    const siguiente = preferencias.cycleQuality();
     toast('Calidad: ' + siguiente);
     render();
   }
@@ -144,9 +137,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
     if (estado.busquedaAbierta) $('#q').focus();
   }
 
-  const resetFilters = () => { estado.filtroPais = 'all'; estado.filtroTipo = 'all'; estado.filtroGenero = 'all'; };
-  // Tocar el chip activo lo apaga; tocar otro lo cambia.
-  const toggleValue = (actual, valor) => actual === valor ? 'all' : valor;
+  const resetFilters = () => { estado.filtros = { ...FILTROS_VACIOS }; };
 
   // ============================================================
   // TABLA DE ACCIONES (data-act="accion:argumento")
@@ -154,9 +145,9 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
 
   const ACCIONES = {
     tab: argumento => { if ($('#detail') && !$('#detail').hidden) closeDetail(); setTab(argumento); },
-    filter: argumento => { estado.filtroPais = argumento; homeBody(); },
-    ftype: argumento => { estado.filtroTipo = toggleValue(estado.filtroTipo, argumento); homeBody(); },
-    fgenre: argumento => { estado.filtroGenero = toggleValue(estado.filtroGenero, argumento); homeBody(); },
+    filter: argumento => { estado.filtros.pais = argumento; homeBody(); },
+    ftype: argumento => { estado.filtros.tipo = toggleFilterValue(estado.filtros.tipo, argumento); homeBody(); },
+    fgenre: argumento => { estado.filtros.genero = toggleFilterValue(estado.filtros.genero, argumento); homeBody(); },
     filterreset: () => { resetFilters(); homeBody(); },
     pickprofile: argumento => {
       perfiles.setActive(argumento);
@@ -181,17 +172,17 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
     install: () => install(),
     toggle: toggleAddon,
     del: deleteAddon,
-    togglesubs: () => { store.set('autoSubs', !store.get('autoSubs', true)); render(); },
-    togglenartosubs: () => { store.set('nartoSubs', !store.get('nartoSubs', false)); render(); },
+    togglesubs: () => { preferencias.toggleAutoSubs(); render(); },
+    togglenartosubs: () => { preferencias.toggleNartoSubs(); render(); },
     setquality: cycleQuality,
-    clearhist: () => confirmAndRun('¿Borrar todo el historial?', () => { estado.historial = {}; saveHist(); toast('Historial borrado'); render(); }),
-    clearlib: () => confirmAndRun('¿Vaciar tu lista?', () => { estado.biblioteca = []; saveLib(); toast('Lista vaciada'); render(); }),
-    clearall: () => confirmAndRun('¿Restablecer todo? Se borran perfiles, historial, lista y addons.', () => { localStorage.clear(); location.reload(); }),
-    register: auth.registerAccount,
-    emaillogin: auth.loginWithEmail,
-    resendverify: auth.resendVerification,
-    checkverify: auth.checkVerification,
-    logout: auth.logout
+    clearhist: () => confirmAndRun('¿Borrar todo el historial?', () => { clearHistory(); toast('Historial borrado'); render(); }),
+    clearlib: () => confirmAndRun('¿Vaciar tu lista?', () => { clearLibrary(); toast('Lista vaciada'); render(); }),
+    clearall: () => confirmAndRun('¿Restablecer todo? Se borran perfiles, historial, lista y addons.', () => { resetAllData(); location.reload(); }),
+    register: cuenta.registerAccount,
+    emaillogin: cuenta.loginWithEmail,
+    resendverify: cuenta.resendVerification,
+    checkverify: cuenta.checkVerification,
+    logout: cuenta.logout
   };
 
   function handleGlobalClick(evento) {
@@ -248,7 +239,7 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   if (plataforma.esTv) document.body.classList.add('tv');
   render();
   reloadAddons();
-  Telon.update.checkForUpdate();
+  Telon.ui.updateBanner.checkForUpdate();
 
   Telon.main = { ACCIONES, handleBack, reloadAddons };
 })(window.Telon = window.Telon || {});

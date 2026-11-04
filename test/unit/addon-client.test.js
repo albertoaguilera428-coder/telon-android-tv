@@ -10,8 +10,10 @@ const assert = require('node:assert/strict');
 const fc = require('fast-check');
 const { loadApp, plain } = require('../support/app-driver');
 
-const app = loadApp({ hasta: 'js/addon-client.js' });
-const cliente = app.Telon.addonClient;
+const app = loadApp({ hasta: 'js/domain/episodes.js' });
+// Reúne red (infra/http), protocolo (infra/addon-client) y reglas de países y episodios (dominio).
+const { infra, domain } = app.Telon;
+const cliente = Object.assign({}, infra.http, infra.addonClient, domain.countries, domain.episodes);
 test.after(() => app.close());
 
 const addonDePrueba = (recursos, extra = {}) => ({ base: 'https://a.x', manifest: { resources: recursos, types: ['series'], idPrefixes: ['tt'], ...extra } });
@@ -284,8 +286,8 @@ test('parseRetryAfter entiende segundos y fechas HTTP, con 30 s por defecto y 10
 });
 
 test('después de un 429 no se vuelve a consultar ese servidor hasta que pase el Retry-After', async () => {
-  const appLimite = loadApp({ hasta: 'js/addon-client.js' });
-  const red = appLimite.Telon.addonClient;
+  const appLimite = loadApp({ hasta: 'js/infra/addon-client.js' });
+  const red = appLimite.Telon.infra.http;
   let ahora = 1000000, peticiones = 0;
   appLimite.window.Date.now = () => ahora;
   appLimite.window.fetch = async () => {

@@ -6,7 +6,7 @@ De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de soft
 La misma app web corre en tres lugares: dentro del APK de Android (celular, tablet o
 Android TV), como app .wgt en televisores Samsung (Tizen) y en un navegador mientras
 desarrollamos. Este archivo es el único que sabe en cuál está; el resto de la app le
-pregunta a Telon.platform y no se entera de los detalles de cada sistema.
+pregunta a Telon.infra.platform y no se entera de los detalles de cada sistema.
 
 Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer pintado.
 */
@@ -161,7 +161,8 @@ Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer
   applyViewport();
   if (nombre === 'tizen') installTizenRemote();
 
-  Telon.platform = {
+  Telon.infra = Telon.infra || {};
+  Telon.infra.platform = {
     nombre,
     esTv,
     // Solo MainActivity puede atrapar el m3u8 de un reproductor embebido (shouldInterceptRequest).

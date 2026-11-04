@@ -9,12 +9,13 @@ guardar en la lista y la grilla de episodios por temporada.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor, logIgnored } = Telon.util;
-  const { getJSON, buildAddonUrl, getCountryCode, buildEpisodeList } = Telon.addonClient;
-  const { estado, refKey, findAddon, saveLib, isInLibrary } = Telon.state;
-  const { toast, spinnerHTML, episodeLabel, episodeNumber, listSeasons, episodesInSeason } = Telon.ui.components;
-  const sololatino = Telon.sololatino;
-  const ICONOS = Telon.ICONOS;
+  const { $, escapeHTML, colorFor } = Telon.ui.dom;
+  const { getCountryCode } = Telon.domain.countries;
+  const { episodeLabel, episodeNumber, listSeasons, episodesInSeason } = Telon.domain.episodes;
+  const { estado, refKey, isInLibrary, toggleLibrary } = Telon.app.state;
+  const { prepareTitle, fetchFullMeta, warmUpSources } = Telon.app.catalogService;
+  const { toast, spinnerHTML } = Telon.ui.components;
+  const ICONOS = Telon.ui.ICONOS;
 
   // ============================================================
   // CARGA
@@ -22,27 +23,17 @@ guardar en la lista y la grilla de episodios por temporada.
 
   // Pinta enseguida con lo que ya sabemos (nombre y póster de la tarjeta) y completa al llegar la ficha.
   async function openDetail(referencia) {
-    sololatino.seedKnownSlug(referencia);
+    prepareTitle(referencia);
     estado.detalle = { referencia, cargando: true, ficha: null, episodios: [] };
     estado.temporadaDetalle = null;
     $('#detail').hidden = false;
     renderDetail();
-    const addon = findAddon(referencia.base);
-    let ficha = { id: referencia.id, type: referencia.type, name: referencia.name, poster: referencia.poster, description: referencia.description };
-    let aviso = '';
-    if (addon) {
-      try {
-        const respuesta = await getJSON(buildAddonUrl(addon, 'meta', referencia.type, referencia.id));
-        if (respuesta && respuesta.meta) ficha = { ...ficha, ...respuesta.meta };
-      } catch (error) {
-        aviso = 'No se pudo cargar la ficha completa (' + error.message + ').';
-      }
-    }
+    const { ficha, episodios, aviso } = await fetchFullMeta(referencia);
     // El usuario pudo cerrar o abrir otra ficha mientras esperábamos; esta respuesta ya no aplica.
     if (!estado.detalle || estado.detalle.referencia !== referencia) return;
-    estado.detalle = { referencia, cargando: false, ficha, episodios: buildEpisodeList(ficha), aviso };
+    estado.detalle = { referencia, cargando: false, ficha, episodios, aviso };
     renderDetail();
-    sololatino.warmUpSlugForImdb(referencia, ficha).catch(error => logIgnored('SoloLatino: no se pudo preparar el slug', error));
+    warmUpSources(referencia, ficha);
   }
 
   // ============================================================
@@ -96,19 +87,9 @@ guardar en la lista y la grilla de episodios por temporada.
   // MI LISTA
   // ============================================================
 
-  // Guardamos con el nombre y póster de la ficha completa si ya llegó; son mejores que los de la tarjeta.
   function toggleLib(referencia) {
-    const clave = refKey(referencia);
-    const indice = estado.biblioteca.findIndex(x => refKey(x) === clave);
-    if (indice >= 0) {
-      estado.biblioteca.splice(indice, 1);
-      toast('Quitado de tu lista');
-    } else {
-      const ficha = (estado.detalle && estado.detalle.ficha) || {};
-      estado.biblioteca.push({ base: referencia.base, type: referencia.type, id: referencia.id, name: ficha.name || referencia.name, poster: ficha.poster || referencia.poster, country: referencia.country });
-      toast('Guardado en tu lista');
-    }
-    saveLib();
+    const guardada = toggleLibrary(referencia, (estado.detalle && estado.detalle.ficha) || {});
+    toast(guardada ? 'Guardado en tu lista' : 'Quitado de tu lista');
   }
 
   Telon.ui.detail = { openDetail, renderDetail, closeDetail, toggleLib };

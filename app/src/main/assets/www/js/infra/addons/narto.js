@@ -10,15 +10,19 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
 (function (Telon) {
   'use strict';
 
-  const { logIgnored } = Telon.util;
-  const { politeFetch } = Telon.addonClient;
+  const { logIgnored } = Telon.infra.log;
+  const { politeFetch } = Telon.infra.http;
+  const { registerVirtualAddon } = Telon.infra.addonClient;
+  const { createBoundedCache } = Telon.infra.cache;
 
   // ============================================================
   // CONSTANTES
   // ============================================================
 
   const URL_NARTO = 'https://narto-drama.com';
+  // Las tendencias cambian poco: 10 minutos evita repetir la descarga en cada vuelta al inicio.
   const DURACION_CACHE_MS = 600000;
+  const MAXIMO_EN_CACHE = 100;
   const CABECERAS = { 'Accept-Language': 'es-419,es' };
 
   const ADDON_NARTO = {
@@ -30,7 +34,7 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
       catalogs: [{ type: 'series', id: 'nd-tendencia', name: 'Tendencia', extra: [{ name: 'search' }] }]
     },
     enabled: true,
-    _cache: {}, _slugs: {}
+    _slugs: {}
   };
 
   // ============================================================
@@ -43,7 +47,7 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
     return respuesta.text();
   }
 
-  const isFresh = entrada => entrada && Date.now() - entrada.ts < DURACION_CACHE_MS;
+  const cacheNarto = createBoundedCache({ maximo: MAXIMO_EN_CACHE, vidaMs: DURACION_CACHE_MS });
 
   function toDrama(item) {
     const coincidenciaLibro = (item.watch_url || '').match(/book_id=(\d+)/);
@@ -57,8 +61,8 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
   }
 
   async function ndSections() {
-    const cache = ADDON_NARTO._cache;
-    if (cache.secciones && Date.now() - cache.seccionesTs < DURACION_CACHE_MS) return cache.secciones;
+    const guardadas = cacheNarto.get('secciones');
+    if (guardadas) return guardadas;
     const datos = JSON.parse(await ndFetchText('/home/providers/sections?provider=anyreel&lang=es-ES&target_lang=es-ES'));
     if (!datos.ok || !datos.sections) return [];
     const dramas = [], vistos = new Set();
@@ -71,8 +75,7 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
         dramas.push(drama);
       }
     }
-    cache.secciones = dramas;
-    cache.seccionesTs = Date.now();
+    cacheNarto.set('secciones', dramas);
     return dramas;
   }
 
@@ -117,11 +120,12 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
 
   async function ndMeta(idLibro) {
     const claveCache = 'meta:' + idLibro;
-    if (isFresh(ADDON_NARTO._cache[claveCache])) return ADDON_NARTO._cache[claveCache].valor;
+    const guardada = cacheNarto.get(claveCache);
+    if (guardada) return guardada;
     const slug = await ndResolveSlug(idLibro);
     if (!slug) return { id: 'nd-' + idLibro, type: 'series', name: 'Drama', videos: [] };
     const valor = parseMetaPage(await ndFetchText('/detail/watch/' + slug + '?lang=es-ES'), idLibro, slug);
-    ADDON_NARTO._cache[claveCache] = { valor, ts: Date.now() };
+    cacheNarto.set(claveCache, valor);
     return valor;
   }
 
@@ -162,6 +166,6 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
     return { streams: [{ url: episodio._url, name: 'Narto Drama', title: episodio.title }] };
   }
 
-  Telon.addonClient.registerVirtualAddon(ADDON_NARTO, respond);
-  Telon.narto = { ADDON_NARTO, respond, parseMetaPage, isNartoAddon: base => base === ADDON_NARTO.base || (base || '').includes('/narto') };
+  registerVirtualAddon(ADDON_NARTO, respond);
+  Telon.infra.narto = { cacheNarto, ADDON_NARTO, respond, parseMetaPage, isNartoAddon: base => base === ADDON_NARTO.base || (base || '').includes('/narto') };
 })(window.Telon = window.Telon || {});

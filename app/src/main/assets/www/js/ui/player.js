@@ -10,15 +10,19 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, store, logIgnored } = Telon.util;
-  const { getJSON, buildAddonUrl, resolveStreams, resolveSubs, subBlob, buildEpisodeList } = Telon.addonClient;
-  const { estado, refKey, findAddon, getEnabledAddons, saveHist, isInLibrary } = Telon.state;
-  const { toast, episodeLabel, episodeNumber, seasonOf, listSeasons, episodesInSeason } = Telon.ui.components;
+  const { logIgnored } = Telon.infra.log;
+  const plataforma = Telon.infra.platform;
+  const { episodeLabel, episodeNumber, seasonOf, listSeasons, episodesInSeason } = Telon.domain.episodes;
+  const { resumePosition } = Telon.domain.progress;
+  const { SUBTITULOS, estado, preferencias, refKey, findAddon, isInLibrary } = Telon.app.state;
+  const { fetchFullMeta } = Telon.app.catalogService;
+  const playback = Telon.app.playbackService;
+  const { $, escapeHTML } = Telon.ui.dom;
+  const { toast } = Telon.ui.components;
   const { renderDetail, toggleLib } = Telon.ui.detail;
   const { homeBody } = Telon.ui.home;
   const { render } = Telon.ui.screens;
-  const plataforma = Telon.platform;
-  const ICONOS = Telon.ICONOS;
+  const ICONOS = Telon.ui.ICONOS;
 
   // ============================================================
   // CONSTANTES
@@ -32,16 +36,12 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
   const ANIMACION_CAMBIO_EPISODIO_MS = 220;
   const DESLIZAMIENTO_MINIMO_PX = 70;
   const VELOCIDADES = [1, 1.5, 1.8, 2];
-  const LINEA_SUBS = { min: -12, max: -1, porDefecto: -4 };
-  const TAMANO_SUBS = { min: 12, max: 36, porDefecto: 20 };
-  // Si quedan menos de 3 segundos lo damos por visto, para que "Continuar" no reabra los créditos.
-  const MARGEN_FINAL_S = 3;
+  const LINEA_SUBS = { min: -12, max: -1, porDefecto: SUBTITULOS.lineaPorDefecto };
+  const TAMANO_SUBS = { min: 12, max: 36, porDefecto: SUBTITULOS.tamanoPorDefecto };
 
   const clamp = (valor, min, max) => Math.max(min, Math.min(max, valor));
   const current = () => estado.reproductor;
 
-  // En Samsung no se puede atrapar el m3u8 de un embed: esas fuentes ni se ofrecen.
-  const isPlayable = fuente => plataforma.admiteEmbed || fuente._tipo !== 'embed';
 
   // ============================================================
   // APERTURA
@@ -57,12 +57,11 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     <div id="psheet"></div>`;
 
   function openPlayer(referencia, ficha, episodios, indice) {
-    // Los dramas cortos de Narto son verticales; todo lo demás se ve horizontal.
-    const esNarto = Telon.narto.isNartoAddon(referencia.base);
+    const esNarto = playback.isVerticalFormat(referencia);
     const reproductor = estado.reproductor = {
       referencia, ficha, episodios, indice, clave: refKey(referencia), fuentes: [], indiceFuente: 0, token: 0,
-      silenciado: false, velocidad: 1, subsActivos: esNarto ? store.get('nartoSubs', false) : store.get('autoSubs', true),
-      lineaSubs: store.get('subLine', LINEA_SUBS.porDefecto), tamanoSubs: store.get('subSize', TAMANO_SUBS.porDefecto),
+      silenciado: false, velocidad: 1, subsActivos: preferencias.subtitlesEnabledFor(esNarto),
+      lineaSubs: preferencias.subtitleLine(), tamanoSubs: preferencias.subtitleSize(),
       reanudarEn: 0, ultimoGuardado: 0, panel: null, deslizado: false, estadoCarga: 'loading', horizontal: !esNarto
     };
     plataforma.setOrientation(esNarto ? 'portrait' : 'landscape');
@@ -193,34 +192,24 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     }, ANIMACION_CAMBIO_EPISODIO_MS);
   }
 
-  // Los nombres de campo (key, idx, t, dur, ts…) son los que ya están guardados en los dispositivos.
-  function buildHistoryEntry(reproductor, segundos, duracion) {
-    const { referencia, ficha, episodios, indice, clave } = reproductor;
-    return { key: clave, base: referencia.base, type: referencia.type, id: referencia.id, name: ficha.name, poster: ficha.poster,
-      idx: indice, videoId: episodios[indice].id, label: episodeLabel(episodios, indice), total: episodios.length,
-      t: duracion && segundos > duracion - MARGEN_FINAL_S ? 0 : segundos, dur: duracion, ts: Date.now() };
-  }
-
   function saveProgress(forzar) {
     const reproductor = current();
     if (!reproductor || !reproductor.video) return;
     const segundos = reproductor.video.currentTime || 0;
     if (!forzar && segundos < 1) return;
-    estado.historial[reproductor.clave] = buildHistoryEntry(reproductor, segundos, reproductor.video.duration || 0);
-    saveHist();
+    playback.saveProgress(reproductor, segundos, reproductor.video.duration || 0);
   }
 
   async function attachSubtitle(reproductor, episodio, token) {
-    const subtitulo = await resolveSubs(getEnabledAddons(), reproductor.referencia.type, episodio.id, []);
-    if (!subtitulo || token !== reproductor.token) return;
     try {
+      const subtitulo = await playback.findSubtitleTrack(reproductor.referencia.type, episodio.id);
+      if (!subtitulo || token !== reproductor.token) return;
       const pista = document.createElement('track');
       pista.kind = 'subtitles';
-      pista.label = subtitulo.lang || 'Subtítulos';
-      pista.srclang = (subtitulo.lang || 'es').slice(0, 2);
+      pista.label = subtitulo.etiqueta;
+      pista.srclang = subtitulo.idioma;
       pista.default = true;
-      pista.src = await subBlob(subtitulo.url);
-      if (token !== reproductor.token) return;
+      pista.src = subtitulo.src;
       reproductor.video.appendChild(pista);
       pista.track.mode = 'showing';
     } catch (error) {
@@ -250,8 +239,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     const embedAnterior = $('#player .embed-frame');
     if (embedAnterior) embedAnterior.remove();
     $('#pfill').style.width = '0';
-    const entrada = estado.historial[reproductor.clave];
-    reproductor.reanudarEn = entrada && entrada.idx === i && entrada.videoId === episodio.id ? entrada.t : 0;
+    reproductor.reanudarEn = resumePosition(estado.historial[reproductor.clave], i, episodio.id);
     updatePlayerUI();
     setCenter('loading');
     let yaInicio = false;
@@ -263,7 +251,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
       playStream();
     };
     attachSubtitle(reproductor, episodio, token).catch(error => logIgnored('Falló la búsqueda de subtítulos', error));
-    const todasLasFuentes = await resolveStreams(getEnabledAddons(), reproductor.referencia.type, episodio.id, onFirst, isPlayable);
+    const todasLasFuentes = await playback.findStreams(reproductor.referencia.type, episodio.id, onFirst);
     if (token !== reproductor.token) return;
     if (!todasLasFuentes.length) {
       reproductor.estadoCarga = 'error';
@@ -488,15 +476,8 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     if (!addon) { toast('El addon de esta serie ya no está instalado'); return; }
     const referencia = { base: entrada.base, type: entrada.type, id: entrada.id, name: entrada.name, poster: entrada.poster };
     toast('Cargando…');
-    let ficha = { id: entrada.id, type: entrada.type, name: entrada.name, poster: entrada.poster };
-    try {
-      const respuesta = await getJSON(buildAddonUrl(addon, 'meta', entrada.type, entrada.id));
-      if (respuesta && respuesta.meta) ficha = { ...ficha, ...respuesta.meta };
-    } catch (error) {
-      // Sin red usamos lo que quedó en el historial: alcanza para retomar el episodio.
-      logIgnored('No se pudo actualizar la ficha al reanudar', error);
-    }
-    const episodios = buildEpisodeList(ficha);
+    // Sin red, fetchFullMeta devuelve lo que quedó en el historial: alcanza para retomar el episodio.
+    const { ficha, episodios } = await fetchFullMeta(referencia);
     const indice = clamp(entrada.idx, 0, episodios.length - 1);
     estado.detalle = { referencia, cargando: false, ficha, episodios };
     $('#detail').hidden = false;
@@ -544,12 +525,12 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     },
     subpos: (reproductor, argumento) => {
       reproductor.lineaSubs = clamp((reproductor.lineaSubs || LINEA_SUBS.porDefecto) + (+argumento), LINEA_SUBS.min, LINEA_SUBS.max);
-      store.set('subLine', reproductor.lineaSubs);
+      preferencias.saveSubtitleLine(reproductor.lineaSubs);
       updateSubtitleSetting(reproductor, { valor: +argumento < 0 ? '▲' : '▼', etiqueta: 'Posición' });
     },
     subsize: (reproductor, argumento) => {
       reproductor.tamanoSubs = clamp((reproductor.tamanoSubs || TAMANO_SUBS.porDefecto) + (+argumento), TAMANO_SUBS.min, TAMANO_SUBS.max);
-      store.set('subSize', reproductor.tamanoSubs);
+      preferencias.saveSubtitleSize(reproductor.tamanoSubs);
       updateSubtitleSetting(reproductor, { valor: reproductor.tamanoSubs + 'px', etiqueta: 'Tamaño' });
     },
     mute: reproductor => {
@@ -592,5 +573,5 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     if (Object.prototype.hasOwnProperty.call(ACCIONES_REPRODUCTOR, accion)) ACCIONES_REPRODUCTOR[accion](reproductor, argumento);
   }
 
-  Telon.ui.player = { openPlayer, closePlayer, loadVideo, playerSheet, playerClick, saveProgress, resume, togglePlayback, buildHistoryEntry };
+  Telon.ui.player = { openPlayer, closePlayer, loadVideo, playerSheet, playerClick, saveProgress, resume, togglePlayback };
 })(window.Telon = window.Telon || {});

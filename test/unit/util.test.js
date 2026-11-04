@@ -10,8 +10,9 @@ const assert = require('node:assert/strict');
 const fc = require('fast-check');
 const { loadApp, plain } = require('../support/app-driver');
 
-const app = loadApp({ hasta: 'js/util.js' });
-const { escapeHTML, colorFor, toInitials, store, COLORES } = app.Telon.util;
+const app = loadApp({ hasta: 'js/ui/dom.js' });
+const { escapeHTML, colorFor, toInitials, COLORES } = app.Telon.ui.dom;
+const { store } = app.Telon.infra.storage;
 test.after(() => app.close());
 
 // ============================================================

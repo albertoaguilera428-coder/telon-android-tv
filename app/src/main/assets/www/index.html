@@ -12,7 +12,7 @@ interfaz y la lista de módulos; la lógica vive en js/.
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Va primero: decide si somos TV o celular y ajusta el viewport antes del primer pintado. -->
-<script src="js/platform.js"></script>
+<script src="js/infra/platform.js"></script>
 <title>Telón</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -27,22 +27,37 @@ interfaz y la lista de módulos; la lógica vive en js/.
 <div id="detail" hidden></div>
 <div id="player" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
-<!-- El orden importa: cada módulo usa a los que se cargaron antes (ver README, "Arquitectura"). -->
-<script src="js/polyfills.js"></script>
-<script src="js/util.js"></script>
-<script src="js/icons.js"></script>
-<script src="js/addon-client.js"></script>
-<script src="js/addons/narto.js"></script>
-<script src="js/addons/sololatino.js"></script>
-<script src="js/state.js"></script>
+<!-- El orden importa: cada capa usa solo a las que se cargaron antes (ver README, "Arquitectura").
+     infraestructura → dominio → aplicación → presentación → arranque -->
+<script src="js/infra/polyfills.js"></script>
+<script src="js/infra/log.js"></script>
+<script src="js/infra/storage.js"></script>
+<script src="js/infra/cache.js"></script>
+<script src="js/infra/http.js"></script>
+<script src="js/infra/addon-client.js"></script>
+<script src="js/infra/addons/narto.js"></script>
+<script src="js/infra/addons/sololatino.js"></script>
+<script src="js/infra/firebase-auth.js"></script>
+<script src="js/domain/countries.js"></script>
+<script src="js/domain/episodes.js"></script>
+<script src="js/domain/catalog.js"></script>
+<script src="js/domain/progress.js"></script>
+<script src="js/domain/account.js"></script>
+<script src="js/app/state.js"></script>
+<script src="js/app/catalog-service.js"></script>
+<script src="js/app/playback-service.js"></script>
+<script src="js/app/account-service.js"></script>
+<script src="js/app/update-service.js"></script>
+<script src="js/ui/dom.js"></script>
+<script src="js/ui/icons.js"></script>
 <script src="js/ui/components.js"></script>
 <script src="js/ui/home.js"></script>
 <script src="js/ui/screens.js"></script>
 <script src="js/ui/detail.js"></script>
 <script src="js/ui/player.js"></script>
 <script src="js/ui/tv-remote.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/update.js"></script>
+<script src="js/ui/account.js"></script>
+<script src="js/ui/update-banner.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

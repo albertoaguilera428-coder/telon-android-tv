@@ -14,9 +14,9 @@ const { loadApp } = require('../support/app-driver');
 // ============================================================
 
 test('una URL maliciosa en version.json no se ejecuta: se entrega tal cual al puente de Android', () => {
-  const app = loadApp({ modo: 'android-tv', hasta: 'js/update.js' });
+  const app = loadApp({ modo: 'android-tv', hasta: 'js/ui/update-banner.js' });
   const urlMaliciosa = "https://x/a.apk');window.hackeado=true;('";
-  app.Telon.update.showUpdateBanner({ version: 3, url: urlMaliciosa, notes: '<img src=x onerror="window.hackeado=true">' });
+  app.Telon.ui.updateBanner.showUpdateBanner({ version: 3, url: urlMaliciosa, notes: '<img src=x onerror="window.hackeado=true">' });
   assert.equal(app.document.querySelector('#updateBanner [onclick]'), null);
   assert.equal(app.document.querySelector('#updateBanner img'), null);
   app.document.querySelector('[data-update="install"]').click();
@@ -26,8 +26,8 @@ test('una URL maliciosa en version.json no se ejecuta: se entrega tal cual al pu
 });
 
 test('"Luego" cierra el banner', () => {
-  const app = loadApp({ modo: 'android-tv', hasta: 'js/update.js' });
-  app.Telon.update.showUpdateBanner({ version: 3, url: 'https://x/a.apk' });
+  const app = loadApp({ modo: 'android-tv', hasta: 'js/ui/update-banner.js' });
+  app.Telon.ui.updateBanner.showUpdateBanner({ version: 3, url: 'https://x/a.apk' });
   app.document.querySelector('[data-update="later"]').click();
   assert.equal(app.document.querySelector('#updateBanner'), null);
   app.close();
@@ -41,8 +41,8 @@ test('solo se ofrece actualizar en Android y si la versión publicada es mayor',
   const conVersion = version => (url) => url.includes('version.json') ? { json: { version, url: 'https://x/a.apk' } } : { status: 404 };
   const casos = [['android-tv', 3, true], ['android-tv', 2, false], ['tizen', 3, false]];
   for (const [modo, version, esperado] of casos) {
-    const app = loadApp({ modo, hasta: 'js/update.js', route: conVersion(version) });
-    await app.Telon.update.checkForUpdate();
+    const app = loadApp({ modo, hasta: 'js/ui/update-banner.js', route: conVersion(version) });
+    await app.Telon.ui.updateBanner.checkForUpdate();
     assert.equal(Boolean(app.document.querySelector('#updateBanner')), esperado, `${modo} v${version}`);
     app.close();
   }

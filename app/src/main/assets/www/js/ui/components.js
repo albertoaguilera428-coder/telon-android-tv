@@ -9,9 +9,9 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
 (function (Telon) {
   'use strict';
 
-  const { $, escapeHTML, colorFor } = Telon.util;
-  const { getCountryCode } = Telon.addonClient;
-  const { refKey } = Telon.state;
+  const { $, escapeHTML, colorFor } = Telon.ui.dom;
+  const { getCountryCode } = Telon.domain.countries;
+  const { refKey } = Telon.domain.progress;
 
   // ============================================================
   // AVISOS EMERGENTES (TOAST)
@@ -57,11 +57,6 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
     return `<button class="card ${claseExtra}" data-act="open" data-k="${escapeHTML(clave)}">${posterHTML(ficha, extra)}<span class="cname">${escapeHTML(ficha.name)}</span>${datos ? `<span class="cmeta">${escapeHTML(datos)}</span>` : ''}</button>`;
   }
 
-  // Barra de progreso para "Continuar viendo" y el historial.
-  function progressPercent(entrada) {
-    return entrada.dur ? Math.min(100, Math.round(entrada.t / entrada.dur * 100)) : 0;
-  }
-
   function emptyAddonsHTML() {
     return `<div class="empty"><h3>Todavía no tienes addons</h3><p>Telón no trae contenido propio: lo traen tus addons. Pega el enlace del <b>manifest.json</b> de uno para ver sus series aquí.</p><button class="btn" data-act="tab:addons">Añadir un addon</button></div>`;
   }
@@ -84,23 +79,6 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
     return `<button class="pf-mini" data-act="showprofiles" style="background:${escapeHTML(perfil.color)}">${initialOf(perfil)}</button>`;
   }
 
-  // ============================================================
-  // EPISODIOS Y TEMPORADAS
-  // ============================================================
-
-  // Las películas no llevan "Ep. 1": solo etiquetamos cuando hay más de un episodio.
-  function episodeLabel(episodios, i) {
-    const episodio = episodios[i];
-    if (!episodio || episodios.length < 2) return '';
-    return 'Ep. ' + episodeNumber(episodio, i);
-  }
-
-  const episodeNumber = (episodio, i) => episodio.episode != null ? episodio.episode : i + 1;
-  const seasonOf = episodio => episodio.season != null ? episodio.season : 1;
-  const listSeasons = episodios => [...new Set(episodios.map(seasonOf))].sort((a, b) => a - b);
-  const episodesInSeason = (episodios, temporada) => episodios.map((episodio, i) => ({ episodio, i })).filter(x => seasonOf(x.episodio) === temporada);
-
   Telon.ui = Telon.ui || {};
-  Telon.ui.components = { toast, registerCard, findCard, spinnerHTML, posterHTML, cardHTML, progressPercent, emptyAddonsHTML,
-    pfAvatarHTML, miniAvatarHTML, episodeLabel, episodeNumber, seasonOf, listSeasons, episodesInSeason };
+  Telon.ui.components = { toast, registerCard, findCard, spinnerHTML, posterHTML, cardHTML, emptyAddonsHTML, pfAvatarHTML, miniAvatarHTML };
 })(window.Telon = window.Telon || {});

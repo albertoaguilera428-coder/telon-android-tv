@@ -15,8 +15,8 @@ const { loadApp, plain } = require('../support/app-driver');
 // ============================================================
 
 test('propiedad: trimHistory nunca supera el máximo y conserva las entradas más recientes', () => {
-  const app = loadApp({ hasta: 'js/state.js' });
-  const { trimHistory } = app.Telon.state;
+  const app = loadApp({ hasta: 'js/app/state.js' });
+  const { trimHistory } = app.Telon.domain.progress;
   const entrada = fc.record({ key: fc.uuid(), ts: fc.nat() });
   fc.assert(fc.property(fc.uniqueArray(entrada, { selector: e => e.key, maxLength: 120 }), fc.integer({ min: 1, max: 80 }), (entradas, maximo) => {
     const historial = Object.fromEntries(entradas.map(e => [e.key, e]));
@@ -35,8 +35,8 @@ test('propiedad: trimHistory nunca supera el máximo y conserva las entradas má
 // ============================================================
 
 test('saveAddons no guarda los addons virtuales ni sus cachés', () => {
-  const app = loadApp({ hasta: 'js/state.js' });
-  const { estado, saveAddons } = app.Telon.state;
+  const app = loadApp({ hasta: 'js/app/state.js' });
+  const { estado, saveAddons } = app.Telon.app.state;
   estado.addons = [
     { base: '__sololatino__', manifest: { id: 'sl' }, enabled: true, _cache: { pagina: '<html>…</html>' } },
     { base: 'https://a.x', manifest: { id: 'a' }, enabled: false, _extra: 'no se guarda' }
@@ -51,8 +51,8 @@ test('saveAddons no guarda los addons virtuales ni sus cachés', () => {
 // ============================================================
 
 test('al borrar el perfil activo, pasa a estar activo el primero que queda', () => {
-  const app = loadApp({ hasta: 'js/state.js' });
-  const { perfiles } = app.Telon.state;
+  const app = loadApp({ hasta: 'js/app/state.js' });
+  const { perfiles } = app.Telon.app.state;
   const ana = perfiles.add('Ana', '#000');
   const beto = perfiles.add('Beto', '#111');
   perfiles.setActive(ana.id);
@@ -63,10 +63,10 @@ test('al borrar el perfil activo, pasa a estar activo el primero que queda', () 
 });
 
 test('la pantalla de perfiles aparece al arrancar solo si no hay perfiles guardados', () => {
-  const sinPerfiles = loadApp({ hasta: 'js/state.js' });
-  const conPerfiles = loadApp({ hasta: 'js/state.js', almacen: { profiles: [{ id: 'x', name: 'Ana', color: '#000' }] } });
-  assert.equal(sinPerfiles.Telon.state.estado.pantallaPerfiles, true);
-  assert.equal(conPerfiles.Telon.state.estado.pantallaPerfiles, false);
+  const sinPerfiles = loadApp({ hasta: 'js/app/state.js' });
+  const conPerfiles = loadApp({ hasta: 'js/app/state.js', almacen: { profiles: [{ id: 'x', name: 'Ana', color: '#000' }] } });
+  assert.equal(sinPerfiles.Telon.app.state.estado.pantallaPerfiles, true);
+  assert.equal(conPerfiles.Telon.app.state.estado.pantallaPerfiles, false);
   sinPerfiles.close();
   conPerfiles.close();
 });
