@@ -68,8 +68,17 @@ app/src/main/
 ```
 
 Son scripts clásicos que comparten `window.Telon`. Cada uno usa solo a los que se
-cargaron antes; el orden está en `index.html`. La razón está en
-[docs/decisiones/0001](docs/decisiones/0001-una-app-web-para-android-y-samsung.md).
+cargaron antes; el orden está en `index.html`. Las decisiones difíciles de revertir están en
+[docs/decisiones/](docs/decisiones/): [0001](docs/decisiones/0001-una-app-web-para-android-y-samsung.md)
+una app web para Android y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md)
+Firebase por REST, [0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia
+del release.
+
+**Límites de consumo:** Telón no expone ninguna API; consume la de addons, sitios y
+Firebase. Si un servidor responde `429`, `js/addon-client.js` respeta su `Retry-After`
+(30 s si no lo indica, 10 min como máximo) y no le pide nada más hasta entonces. No hay
+reintentos automáticos: el usuario decide con "Reintentar". La búsqueda espera 350 ms a
+que se deje de escribir antes de consultar.
 
 **No renombrar sin migración:** las claves de `localStorage` y los campos guardados de
 historial, lista y perfiles (ahí están los datos de los usuarios), los campos del
@@ -116,3 +125,18 @@ tizen install -n build/Telon.wgt -t <nombre-de-la-tv>
 Diferencias con Android: el control remoto se traduce en `platform.js`. Las fuentes
 "embed" de SoloLatino no se ofrecen, porque solo MainActivity puede capturar su video;
 se usan las fuentes directas. Las actualizaciones se hacen reinstalando el `.wgt`.
+
+## Cómo contribuir
+
+- **Ramas** cortas desde `master`, una por tarea (`mejora/…`, `corrige/…`); se borran al integrarse.
+- **Commits** coherentes y en imperativo: `Agrega límite de solicitudes por cliente`.
+  Formato, refactor y funcionalidad van en commits separados. Nunca secretos ni
+  `keystore.properties`.
+- **Pull requests** con la plantilla de `.github/`: problema, solución, pruebas, riesgos
+  y qué documento deja de ser verdad. El CI tiene que pasar.
+- **Merge** con merge commit, para conservar los commits de la rama. Se puede hacer
+  **rebase** solo sobre una rama propia que nadie más usa; nunca sobre `master` ni sobre
+  una rama compartida.
+- **Conflictos:** se resuelven entendiendo ambos lados y luego se corre `npm test`.
+
+Responsable del código y la documentación: Albert Alvear (ver `.github/CODEOWNERS`).
