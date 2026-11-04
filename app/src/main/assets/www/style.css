@@ -7,8 +7,8 @@ Diseño "vibrante": base violeta muy oscura, degradado de marca rosa → violeta
 títulos en Unbounded y texto en Plus Jakarta Sans. La base es la versión táctil (celular y
 tablet); todo lo que cuelga de body.tv adapta la interfaz a 1920 px vista desde el sofá.
 
-Compatibilidad: los Samsung de 2020 traen Chromium 69. Por eso los pósters usan padding-top
-y no aspect-ratio (Chromium 88), y build-tizen convierte inset en top/right/bottom/left.
+Compatibilidad: soportamos Samsung desde 2021 (Tizen 6.5, Chromium 85). Por eso los pósters
+usan padding-top y no aspect-ratio (Chromium 88), y build-tizen convierte inset (Chromium 87).
 */
 
 /* ============================================================ */
@@ -63,6 +63,8 @@ h1,h2,h3,p{margin:0}
 #screen{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
 .scroll{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 0 32px;display:flex;flex-direction:column;gap:30px;-ms-overflow-style:none;scrollbar-width:none}
 .scroll::-webkit-scrollbar{display:none}
+/* Lo que va dentro del scroll nunca se encoge: si no, con mucho contenido las secciones se aplastan y se montan. */
+.scroll>*{flex-shrink:0}
 
 /* ============================================================ */
 /* BARRA SUPERIOR */
@@ -124,7 +126,7 @@ h1,h2,h3,p{margin:0}
 .card{flex:0 0 142px;border:0;background:transparent;padding:0;text-align:left;display:flex;flex-direction:column;gap:8px;min-width:0;transition:transform .18s var(--curva)}
 .card:active{transform:scale(.96)}
 .card.wide{flex-basis:142px}
-/* Póster 2:3 con padding-top (funciona en Chromium 69, a diferencia de aspect-ratio). */
+/* Póster 2:3 con padding-top (funciona en Chromium 85, a diferencia de aspect-ratio). */
 .poster{position:relative;height:0;padding-top:150%;border-radius:var(--radio);overflow:hidden;background:linear-gradient(150deg,var(--tono-a),var(--tono-b));box-shadow:0 10px 26px -14px rgba(0,0,0,.9);border:1px solid rgba(255,255,255,.08)}
 .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .poster::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,7,20,.7) 0%,transparent 45%);pointer-events:none}
@@ -150,6 +152,35 @@ h1,h2,h3,p{margin:0}
 .btn:disabled{opacity:.45}
 .spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.1);border-top-color:var(--rosa);border-right-color:var(--violeta);animation:sp .75s linear infinite;margin:28px auto}
 @keyframes sp{to{transform:rotate(360deg)}}
+/* Esqueletos: la silueta de lo que viene, con un brillo que la recorre. Mejor que un spinner: la página
+   no salta cuando llega el contenido. */
+.esqueletos{display:flex;flex-direction:column;gap:30px;flex:0 0 auto}
+.esqueleto{display:block;border-radius:var(--radio);background:linear-gradient(100deg,rgba(255,255,255,.05) 30%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 70%) 0 0/300% 100%;animation:brillo-esqueleto 1.4s ease-in-out infinite}
+@keyframes brillo-esqueleto{from{background-position:100% 0}to{background-position:0 0}}
+.esqueleto-hero{margin:0 var(--margen);height:440px;border-radius:var(--radio-grande)}
+.esqueleto-titulo{margin:0 var(--margen);width:180px;height:22px;border-radius:var(--radio-chico)}
+.esqueleto-tarjeta{flex:0 0 142px;display:flex;flex-direction:column;gap:8px}
+.esqueleto-poster{height:0;padding-top:150%}
+.esqueleto-linea{height:14px;width:70%;border-radius:var(--radio-chico)}
+.esqueleto-linea.larga{width:100%}
+.esqueleto-boton{height:48px;width:200px;border-radius:var(--pildora)}
+.d-info .esqueletos{gap:14px}
+.con-margen{padding:0 var(--margen)}
+.con-aire{padding-top:16px}
+.btn.chico{height:38px;padding:0 16px;font-size:13px}
+.aviso-amarillo{color:var(--amarillo);font-style:normal;font-weight:700}
+
+/* Ventana modal (aviso de actualización) */
+.modal-fondo{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(11,7,20,.78)}
+.modal{position:relative;width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px;padding:28px 24px 24px;border-radius:var(--radio-grande);background:var(--fondo-elevado);border:1px solid var(--borde-fuerte);box-shadow:0 30px 80px -20px rgba(0,0,0,.9),0 0 0 1px rgba(255,61,139,.15);overflow:hidden}
+.modal::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--degradado)}
+.modal-icono{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;background:var(--degradado);box-shadow:var(--brillo)}
+.modal h3{font-family:var(--fuente-titulos);font-size:20px;font-weight:700}
+.modal p{font-size:14px;line-height:21px;color:var(--texto-suave)}
+.modal .modal-nota{font-size:12px;color:var(--texto-tenue)}
+.modal .fila-acciones{margin-top:6px;align-items:center}
+.modal .fila-acciones .btn{flex:1}
+
 #toast{position:fixed;left:16px;right:16px;bottom:96px;z-index:50;display:flex;justify-content:center;pointer-events:none}
 #toast div{background:rgba(28,21,51,.94);color:var(--texto);border:1px solid var(--borde-fuerte);border-radius:var(--pildora);padding:12px 20px;font-size:13px;font-weight:600;line-height:20px;box-shadow:0 16px 40px -16px rgba(0,0,0,.9)}
 
@@ -171,6 +202,7 @@ h1,h2,h3,p{margin:0}
 .logo48 img{width:100%;height:100%;object-fit:cover}
 .itext{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .itext b{font-size:15px;font-weight:700}
+.itext .version{font-weight:500;font-size:12px;color:var(--texto-tenue)}
 .itext span{font-size:12px;color:var(--texto-suave);line-height:17px}
 .res{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
 .res i{font-style:normal;font-size:10px;padding:3px 8px;border-radius:var(--pildora);background:var(--superficie-2);color:var(--texto-suave);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
@@ -191,7 +223,7 @@ h1,h2,h3,p{margin:0}
 .grid3 .card{flex:initial}
 .hrow{display:flex;gap:12px;align-items:center;background:var(--superficie);border:1px solid var(--borde);border-radius:var(--radio);padding:12px;text-align:left;width:100%}
 .hrow .poster{width:52px;flex:0 0 auto;padding-top:78px;border-radius:var(--radio-chico)}
-.hrow .prog{position:static;margin-top:8px}
+.hrow .prog{position:static;margin-top:8px;background:var(--superficie-2)}
 
 /* ============================================================ */
 /* NAVEGACIÓN */
@@ -208,11 +240,17 @@ h1,h2,h3,p{margin:0}
 /* DETALLE DE SERIE */
 /* ============================================================ */
 #detail{position:fixed;inset:0;background:var(--fondo);z-index:20;overflow-y:auto}
-.dhero{position:relative;height:360px;background-size:cover;background-position:center 20%;display:flex;align-items:flex-start;padding:10px;overflow:hidden;background-color:var(--tono-b);background-image:var(--imagen,linear-gradient(150deg,var(--tono-a),var(--tono-b)))}
+.dhero{position:relative;height:360px;display:flex;align-items:flex-start;padding:calc(10px + env(safe-area-inset-top)) 10px 10px;overflow:hidden;background:linear-gradient(150deg,var(--tono-a),var(--tono-b))}
 .dhero::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--fondo) 3%,rgba(11,7,20,.4) 45%,transparent 75%)}
 .dhero .iconbtn{position:relative;z-index:1;background:rgba(11,7,20,.6);color:#fff}
-.dbody{padding:0 var(--margen) 44px;display:flex;flex-direction:column;gap:16px;margin-top:-40px;position:relative;z-index:1}
-.dbody h1{font-family:var(--fuente-titulos);font-size:28px;font-weight:800;line-height:1.1}
+.dbody{padding:0 var(--margen) 44px;margin-top:-56px;position:relative;z-index:1}
+.dbody h1{font-family:var(--fuente-titulos);font-size:28px;font-weight:800;line-height:1.1;text-shadow:0 2px 20px rgba(0,0,0,.5)}
+/* En el celular el póster ya se ve en el encabezado; desde tablet aparece nítido al lado de la información. */
+.d-cabecera{display:flex;gap:28px;align-items:flex-start}
+.d-poster{display:none;flex:0 0 220px}
+.d-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.subtitulo{font-family:var(--fuente-titulos);font-size:18px;font-weight:700}
+.d-episodios{display:flex;flex-direction:column;gap:12px;margin-top:10px}
 .pills{display:flex;gap:6px;flex-wrap:wrap}
 .pills i{font-style:normal;font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--pildora);background:var(--superficie-2);color:var(--texto-suave)}
 .pills i:first-child{background:var(--degradado);color:#fff;font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
@@ -220,7 +258,8 @@ h1,h2,h3,p{margin:0}
 .actions{display:flex;gap:10px}
 .actions .btn{flex:1}
 /* Espacio abajo para que el brillo del chip activo no lo corte el scroll horizontal. */
-.season-chips{display:flex;gap:8px;margin-bottom:4px;overflow-x:auto;padding:4px 2px 16px}
+.season-chips{display:flex;gap:8px;margin:0 -16px 4px;overflow-x:auto;padding:4px 16px 18px;-ms-overflow-style:none;scrollbar-width:none}
+.season-chips::-webkit-scrollbar{display:none}
 .eps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .ep{min-height:50px;border-radius:var(--radio-chico);border:1px solid var(--borde);background:var(--superficie);font-weight:800;font-size:14px;position:relative;transition:transform .15s var(--curva)}
 .ep:active{transform:scale(.94)}
@@ -256,6 +295,19 @@ h1,h2,h3,p{margin:0}
 .center .bubble{width:74px;height:74px;border-radius:50%;background:var(--degradado);display:flex;align-items:center;justify-content:center;box-shadow:var(--brillo)}
 .center .msg{background:rgba(11,7,20,.8);border:1px solid var(--borde);border-radius:var(--radio);padding:14px 18px;font-size:14px;line-height:21px}
 .center .btn{pointer-events:auto}
+.center .btn.out{background:rgba(11,7,20,.65)}
+.center .fila-acciones{justify-content:center}
+.carga{display:flex;flex-direction:column;align-items:center;gap:4px}
+.carga-poster{width:120px;border-radius:var(--radio);margin-bottom:8px;box-shadow:0 20px 50px -16px rgba(255,61,139,.55)}
+.carga .spin{margin:8px auto}
+.carga-texto{font-size:15px;font-weight:600;color:#fff}
+.aviso-subtitulos{position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);z-index:200;display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 28px;border-radius:var(--radio);background:rgba(11,7,20,.85);border:1px solid var(--borde-fuerte);color:#fff;pointer-events:none;animation:aparecer .3s var(--curva);transition:opacity .3s}
+.aviso-subtitulos.saliendo{opacity:0}
+.aviso-valor{font-family:var(--fuente-titulos);font-size:32px;font-weight:700}
+.aviso-etiqueta{font-size:13px;color:var(--texto-suave)}
+@keyframes aparecer{from{opacity:0;transform:translate(-50%,-40%)}to{opacity:1;transform:translate(-50%,-50%)}}
+.ajuste-fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}
+.ajuste-fila>span{font-size:14px;font-weight:600;color:var(--texto-suave)}
 .sheetbg{position:absolute;inset:0;background:rgba(11,7,20,.7);display:flex;flex-direction:column;justify-content:flex-end;z-index:5}
 .sheet{background:var(--fondo-elevado);border-radius:28px 28px 0 0;padding:10px 18px calc(26px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;max-height:72%;overflow-y:auto;touch-action:pan-y;border-top:1px solid var(--borde-fuerte)}
 .sheet .grab{align-self:center;width:40px;height:4px;border-radius:2px;background:var(--borde-fuerte)}
@@ -280,6 +332,9 @@ h1,h2,h3,p{margin:0}
 .pf-avatar{width:100px;height:100px;border-radius:28px;display:flex;align-items:center;justify-content:center;font-family:var(--fuente-titulos);font-size:38px;font-weight:700;color:#fff;transition:transform .15s var(--curva);box-shadow:0 14px 30px -14px rgba(0,0,0,.9)}
 .pf-add{border:2px dashed var(--borde-fuerte);background:transparent!important;color:var(--texto-suave);box-shadow:none}
 .pf-name{font-size:14px;font-weight:700;color:var(--texto-suave)}
+.pf-avatar,.pf-mini{overflow:hidden}
+.pf-foto{width:100%;height:100%;object-fit:cover;display:block}
+.pf-acciones{justify-content:center}
 .pf-mini{width:40px;height:40px;border-radius:50%;border:2px solid transparent;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:0 0 auto;margin-left:2px;box-shadow:0 0 0 2px var(--rosa)}
 
 /* ============================================================ */
@@ -292,10 +347,16 @@ h1,h2,h3,p{margin:0}
 .set-card[data-act]:active{background:var(--superficie-2)}
 .set-avatar{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:var(--fuente-titulos);font-size:20px;font-weight:700;color:#fff;flex:0 0 auto}
 .set-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:#fff;background:var(--degradado)}
+.set-icon.amarillo{background:linear-gradient(140deg,var(--amarillo),#FB923C);color:#2A1600}
 .set-arrow{transform:rotate(180deg);color:var(--texto-tenue);flex:0 0 auto;margin-left:auto}
 .auth-form{display:flex;flex-direction:column;gap:10px}
 .auth-input{background:var(--superficie);border:1px solid var(--borde);border-radius:var(--pildora);padding:15px 20px;color:var(--texto);font-size:15px;font-family:inherit;outline:none}
 .auth-input:focus{border-color:var(--rosa);box-shadow:0 0 0 4px rgba(255,61,139,.18)}
+.auth-input::placeholder{color:var(--texto-tenue)}
+.auth-form .btn{width:100%}
+.auth-form .btn.pri{margin-top:8px}
+.auth-separador{display:flex;align-items:center;gap:12px;margin:8px 0;font-size:13px;color:var(--texto-tenue)}
+.auth-separador::before,.auth-separador::after{content:"";flex:1;height:1px;background:var(--borde)}
 
 /* ============================================================ */
 /* TABLET (PANTALLA TÁCTIL ANCHA) */
@@ -310,6 +371,11 @@ h1,h2,h3,p{margin:0}
   body:not(.tv) .hero-texto{padding:32px;max-width:640px}
   body:not(.tv) .card{flex-basis:160px}
   body:not(.tv) #nav{align-self:center;width:420px}
+  body:not(.tv) .esqueleto-hero{height:500px}
+  body:not(.tv) .dhero{height:420px}
+  body:not(.tv) .dbody{margin-top:-180px}
+  body:not(.tv) .d-poster{display:block}
+  body:not(.tv) .d-info{padding-top:120px}
 }
 
 /* ============================================================ */
@@ -329,7 +395,10 @@ body.tv #nav button.on{color:#fff;background:var(--superficie-2)}
 
 body.tv .appbar{display:none}
 body.tv .scroll{padding-top:104px;gap:44px}
-body.tv .head{padding:24px var(--margen) 6px}
+/* La barra de navegación flota arriba (96 px): los títulos de pantalla empiezan debajo. */
+body.tv .head{padding:120px var(--margen) 6px}
+body.tv .head+.scroll{padding-top:16px}
+body.tv .head+.tabs{margin-top:16px}
 body.tv .head h1{font-size:52px}
 body.tv .tabs{margin:112px var(--margen) 0}
 body.tv .tabs button{font-size:24px;min-height:60px;padding:0 32px}
@@ -375,14 +444,69 @@ body.tv .ep{min-height:76px;font-size:24px;border-radius:16px}
 body.tv .btn{height:76px;font-size:26px;padding:0 44px}
 
 /* Detalle de serie */
-body.tv .dhero{height:620px}
-body.tv .dbody{padding:0 var(--margen) 56px}
-body.tv .dbody h1{font-size:80px;line-height:1.02}
+body.tv .dhero{height:620px;padding:40px var(--margen)}
+body.tv .dhero .iconbtn{width:72px;height:72px}
+body.tv .dbody{padding:0 var(--margen) 56px;margin-top:-380px}
+body.tv .dbody h1{font-size:72px;line-height:1.04}
+body.tv .d-cabecera{gap:64px}
+body.tv .d-poster{display:block;flex-basis:360px}
+body.tv .d-poster .poster{border-radius:28px;box-shadow:0 40px 80px -30px rgba(0,0,0,.95)}
+body.tv .d-info{gap:24px;padding-top:40px}
+body.tv .subtitulo{font-size:34px}
+body.tv .d-episodios{gap:20px}
 body.tv .desc{font-size:28px;line-height:42px;max-width:900px}
 body.tv .pills i{font-size:22px;padding:8px 20px}
 body.tv .actions{gap:22px}
 body.tv .actions .btn{flex:0 0 auto}
-body.tv .season-chips{gap:16px;padding:0}
+body.tv .season-chips{gap:16px;padding:6px 28px 28px;margin:0 -28px -12px}
+
+/* Esqueletos a escala de sala */
+body.tv .esqueletos{padding-top:104px;gap:44px}
+body.tv .d-info .esqueletos{padding-top:0;gap:22px}
+body.tv .esqueleto-hero{height:600px;border-radius:32px}
+body.tv .esqueleto-titulo{width:340px;height:36px}
+body.tv .esqueleto-tarjeta{flex-basis:230px}
+body.tv .esqueleto-linea{height:24px}
+body.tv .esqueleto-boton{height:76px;width:320px}
+
+/* Ventanas, ajustes del reproductor y cuenta */
+body.tv .modal{max-width:760px;padding:56px 52px 48px;gap:24px}
+body.tv .modal-icono{width:88px;height:88px;font-size:40px;border-radius:26px}
+body.tv .modal h3{font-size:42px}
+body.tv .modal p{font-size:26px;line-height:38px}
+body.tv .modal .modal-nota{font-size:22px}
+body.tv .ajuste-fila>span{font-size:26px}
+body.tv .itext b{font-size:26px}
+body.tv .itext span{font-size:20px;line-height:28px}
+body.tv .itext .version{font-size:20px}
+body.tv .set-card,body.tv .item{padding:22px;border-radius:22px;gap:22px}
+body.tv .set-icon{width:64px;height:64px;border-radius:18px}
+body.tv .set-avatar{width:72px;height:72px;font-size:30px;border-radius:20px}
+body.tv .set-section{gap:12px;margin-bottom:30px;max-width:1240px}
+body.tv .set-section>label,body.tv .addwrap label{font-size:20px}
+body.tv .auth-input{font-size:24px;padding:22px 30px}
+body.tv .auth-separador{font-size:22px}
+body.tv .btn.chico{height:56px;font-size:22px;padding:0 28px}
+body.tv .hint{font-size:20px;line-height:30px}
+body.tv .err{font-size:22px;line-height:32px}
+body.tv .addrow input{height:72px;font-size:24px;padding:0 30px}
+body.tv .addrow .btn{height:72px}
+body.tv .logo48{width:80px;height:80px;border-radius:20px;font-size:28px}
+body.tv .res i{font-size:16px;padding:5px 12px}
+body.tv .switch{width:84px;height:48px}
+body.tv .switch i{width:26px;height:26px;margin-left:10px}
+body.tv .switch[aria-checked=true] i{width:34px;height:34px;margin-left:40px}
+body.tv .hrow{padding:20px;gap:24px;border-radius:22px}
+body.tv .hrow .poster{width:84px;padding-top:126px}
+body.tv .sheet{padding:20px 56px 48px;gap:20px;border-radius:40px 40px 0 0}
+body.tv .sheet h3{font-size:34px}
+body.tv .srcopt{min-height:88px;padding:16px 28px;font-size:26px}
+body.tv .srcopt span{font-size:20px}
+body.tv .center .msg{font-size:26px;line-height:38px;padding:24px 32px}
+body.tv .carga-poster{width:220px}
+body.tv .carga-texto{font-size:28px}
+body.tv .pinfo h2{font-size:40px}
+body.tv .pinfo span{font-size:24px}
 
 /* Listas y ajustes */
 body.tv .empty{margin:20px var(--margen);padding:44px}
@@ -413,7 +537,8 @@ body.tv #toast div{font-size:26px;line-height:36px;padding:18px 34px}
 /* Perfiles */
 body.tv .pf-screen{gap:72px;padding:80px}
 body.tv .pf-title{font-size:64px}
-body.tv .pf-grid{grid-template-columns:repeat(auto-fit,240px);gap:72px;justify-content:center}
+/* Columnas implícitas: dentro de un contenedor que se ajusta al contenido, auto-fit dejaría una sola. */
+body.tv .pf-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:240px;gap:72px;justify-content:center}
 body.tv .pf-avatar{width:240px;height:240px;border-radius:56px;font-size:96px}
 body.tv .pf-name{font-size:30px}
 body.tv .pf-add svg{width:72px;height:72px}

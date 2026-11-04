@@ -46,6 +46,11 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
   const clearCards = () => indiceTarjetas.clear();
   const cardCount = () => indiceTarjetas.size;
 
+  // Siluetas mientras carga: el usuario ve la forma de lo que viene en lugar de un círculo girando.
+  const skeletonCardsHTML = (cantidad = 6) => Array.from({ length: cantidad }, () => '<span class="esqueleto-tarjeta"><span class="esqueleto esqueleto-poster"></span><span class="esqueleto esqueleto-linea"></span></span>').join('');
+  const skeletonHomeHTML = etiqueta => `<div class="esqueletos" role="progressbar" aria-label="${etiqueta}"><span class="esqueleto esqueleto-hero"></span>${[1, 2].map(() => `<div class="section"><span class="esqueleto esqueleto-titulo"></span><div class="row">${skeletonCardsHTML()}</div></div>`).join('')}</div>`;
+  const skeletonDetailHTML = () => '<div class="esqueletos" role="progressbar" aria-label="Cargando"><span class="esqueleto esqueleto-linea larga"></span><span class="esqueleto esqueleto-linea"></span><span class="esqueleto esqueleto-boton"></span></div>';
+
   const spinnerHTML = etiqueta => `<div class="spin" role="progressbar" aria-label="${etiqueta}"></div>`;
 
   function posterHTML(ficha, extra = '') {
@@ -72,20 +77,19 @@ Todo devuelve HTML como texto; quien lo usa decide dónde pintarlo.
 
   const initialOf = perfil => escapeHTML(perfil.name[0].toUpperCase());
 
-  function pfAvatarHTML(perfil, tamano) {
-    const lado = tamano || 96;
+  function pfAvatarHTML(perfil) {
     const imagen = safeUrl(perfil.image), color = safeColor(perfil.color);
-    if (imagen) return `<span class="pf-avatar" style="background:${color}"><img src="${escapeHTML(imagen)}" style="width:${lado}px;height:${lado}px;border-radius:12px;object-fit:cover" data-fallback="remove"></span>`;
+    if (imagen) return `<span class="pf-avatar" style="background:${color}"><img class="pf-foto" src="${escapeHTML(imagen)}" alt="" data-fallback="remove"></span>`;
     return `<span class="pf-avatar" style="background:${color}">${initialOf(perfil)}</span>`;
   }
 
   function miniAvatarHTML(perfil) {
     if (!perfil) return '';
     const imagen = safeUrl(perfil.image), color = safeColor(perfil.color);
-    if (imagen) return `<button class="pf-mini" data-act="showprofiles" style="background:${color};padding:0;overflow:hidden"><img src="${escapeHTML(imagen)}" style="width:32px;height:32px;border-radius:16px;object-fit:cover" data-fallback="initial" data-inicial="${initialOf(perfil)}"></button>`;
+    if (imagen) return `<button class="pf-mini" data-act="showprofiles" style="background:${color}"><img class="pf-foto" src="${escapeHTML(imagen)}" alt="" data-fallback="initial" data-inicial="${initialOf(perfil)}"></button>`;
     return `<button class="pf-mini" data-act="showprofiles" style="background:${color}">${initialOf(perfil)}</button>`;
   }
 
   Telon.ui = Telon.ui || {};
-  Telon.ui.components = { toast, registerCard, findCard, clearCards, cardCount, spinnerHTML, posterHTML, cardHTML, emptyAddonsHTML, pfAvatarHTML, miniAvatarHTML };
+  Telon.ui.components = { toast, registerCard, findCard, clearCards, cardCount, spinnerHTML, skeletonHomeHTML, skeletonDetailHTML, posterHTML, cardHTML, emptyAddonsHTML, pfAvatarHTML, miniAvatarHTML };
 })(window.Telon = window.Telon || {});

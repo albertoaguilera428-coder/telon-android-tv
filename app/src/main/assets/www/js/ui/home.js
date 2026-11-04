@@ -16,7 +16,7 @@ los catálogos que declaran soportarla.
   const { progressPercent, continueWatching } = Telon.domain.progress;
   const { estado, perfiles } = Telon.app.state;
   const { loadCatalogs, searchCatalogs } = Telon.app.catalogService;
-  const { registerCard, spinnerHTML, posterHTML, cardHTML, emptyAddonsHTML, miniAvatarHTML } = Telon.ui.components;
+  const { registerCard, spinnerHTML, skeletonHomeHTML, posterHTML, cardHTML, emptyAddonsHTML, miniAvatarHTML } = Telon.ui.components;
   const ICONOS = Telon.ui.ICONOS;
 
   // ============================================================
@@ -117,13 +117,13 @@ los catálogos que declaran soportarla.
     if (!contenedor) return;
     if (!estado.addons.length) { contenedor.innerHTML = emptyAddonsHTML(); return; }
     if (estado.busquedaAbierta && estado.consulta.trim()) { contenedor.innerHTML = searchHTML(); return; }
-    if (estado.cargando && !estado.filas) { contenedor.innerHTML = spinnerHTML('Cargando'); return; }
+    if (estado.cargando && !estado.filas) { contenedor.innerHTML = skeletonHomeHTML('Cargando'); return; }
     const filas = estado.filas || [];
     if (!filas.length) { contenedor.innerHTML = noCatalogsHTML(); return; }
     const opciones = collectFilterOptions(filas);
     estado.filtros = resetStaleFilters(estado.filtros, opciones);
     const visibles = applyFilters(filas, estado.filtros);
-    const avisoErrores = estado.filasConError ? `<p class="hint" style="padding:0 16px">${estado.filasConError} catálogo(s) no respondieron.</p>` : '';
+    const avisoErrores = estado.filasConError ? `<p class="hint con-margen">${estado.filasConError} catálogo(s) no respondieron.</p>` : '';
     contenedor.innerHTML = filterChipsHTML(opciones, estado.filtros) + heroHTML(visibles) + continueWatchingHTML() + catalogSectionsHTML(visibles) + avisoErrores;
   }
 

@@ -332,15 +332,15 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
   function loadingHTML(texto) {
     const reproductor = current();
     const poster = reproductor && reproductor.sesion.ficha && safeUrl(reproductor.sesion.ficha.poster);
-    const imagen = poster ? `<img src="${escapeHTML(poster)}" style="width:120px;border-radius:12px;margin-bottom:12px" alt="">` : '';
-    return `<div style="display:flex;flex-direction:column;align-items:center">${imagen}<div class="spin" style="margin-bottom:8px"></div><span style="color:#fff;font-size:15px">${texto}</span></div>`;
+    const imagen = poster ? `<img class="carga-poster" src="${escapeHTML(poster)}" alt="">` : '';
+    return `<div class="carga">${imagen}<div class="spin"></div><span class="carga-texto">${texto}</span></div>`;
   }
 
   const CENTROS = {
     transition: () => loadingHTML('Cargando siguiente capítulo…'),
     loading: () => loadingHTML('Cargando capítulo…'),
     paused: () => `<span class="bubble">${ICONOS.playBig}</span>`,
-    error: mensaje => `<div class="msg" role="alert">${escapeHTML(mensaje)}</div><div style="display:flex;gap:8px"><button class="btn" data-p="retry">Reintentar</button><button class="btn out" style="background:#000000aa" data-p="sources">Fuentes</button></div>`
+    error: mensaje => `<div class="msg" role="alert">${escapeHTML(mensaje)}</div><div class="fila-acciones"><button class="btn" data-p="retry">Reintentar</button><button class="btn out" data-p="sources">Fuentes</button></div>`
   };
 
   function setCenter(modo, mensaje) {
@@ -357,12 +357,11 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
       aviso.id = '_subFlash';
       document.body.appendChild(aviso);
     }
-    aviso.innerHTML = `<span style="font-size:32px;font-weight:700">${valor}</span><span style="font-size:13px;color:#aaa">${etiqueta}</span>`;
-    aviso.style.cssText = 'position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);z-index:200;background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:16px 28px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff;pointer-events:none;animation:_sfIn .35s ease';
+    aviso.innerHTML = `<span class="aviso-valor">${valor}</span><span class="aviso-etiqueta">${etiqueta}</span>`;
+    aviso.className = 'aviso-subtitulos';
     clearTimeout(temporizadorAviso);
     temporizadorAviso = setTimeout(() => {
-      aviso.style.opacity = '0';
-      aviso.style.transition = 'opacity .3s';
+      aviso.classList.add('saliendo');
       setTimeout(() => { aviso.remove(); }, 300);
     }, 600);
   }
@@ -445,9 +444,9 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
   function subtitlesSheetHTML(reproductor) {
     const tamanoSubs = reproductor.sesion.tamanoSubs;
     return `${sheetHeaderHTML('Subtítulos')}
-      <div class="set-card" style="background:var(--superficie-2);border:1px solid var(--borde);border-radius:10px;padding:14px"><div class="itext"><b style="color:#fff">Activados</b></div><button class="switch" role="switch" aria-checked="${reproductor.sesion.subsActivos}" data-p="subtoggle"><i></i></button></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0"><span style="font-size:14px;color:#ccc">Posición</span><div style="display:flex;gap:8px"><button class="chip" data-p="subpos:-1" aria-label="Subir">▲ Arriba</button><button class="chip" data-p="subpos:1" aria-label="Bajar">▼ Abajo</button></div></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0"><span style="font-size:14px;color:#ccc">Tamaño (${tamanoSubs}px)</span><div style="display:flex;gap:8px"><button class="chip" data-p="subsize:-2" aria-label="Menor">A−</button><button class="chip" data-p="subsize:2" aria-label="Mayor">A+</button></div></div>`;
+      <div class="set-card"><div class="itext"><b>Activados</b></div><button class="switch" role="switch" aria-checked="${reproductor.sesion.subsActivos}" data-p="subtoggle"><i></i></button></div>
+      <div class="ajuste-fila"><span>Posición</span><div class="fila-acciones"><button class="chip" data-p="subpos:-1" aria-label="Subir">▲ Arriba</button><button class="chip" data-p="subpos:1" aria-label="Bajar">▼ Abajo</button></div></div>
+      <div class="ajuste-fila"><span>Tamaño (${tamanoSubs}px)</span><div class="fila-acciones"><button class="chip" data-p="subsize:-2" aria-label="Menor">A−</button><button class="chip" data-p="subsize:2" aria-label="Mayor">A+</button></div></div>`;
   }
 
   function sourcesSheetHTML(reproductor) {

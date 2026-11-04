@@ -28,7 +28,9 @@ const CAPTURAS = path.join(__dirname, '..', '..', 'build', 'capturas');
 const DISPOSITIVOS = [
   { nombre: 'celular', modo: 'android-phone', viewport: { width: 390, height: 844 }, escala: 3, tactil: true },
   { nombre: 'tablet', modo: 'android-phone', viewport: { width: 820, height: 1180 }, escala: 2, tactil: true },
-  { nombre: 'android-tv', modo: 'android-tv', viewport: { width: 960, height: 540 }, escala: 2, tactil: false },
+  // El WebView de Android TV respeta <meta viewport width=1920> (setUseWideViewPort); Chromium de escritorio
+  // solo lo respeta emulando un dispositivo móvil, por eso respetaMeta.
+  { nombre: 'android-tv', modo: 'android-tv', viewport: { width: 960, height: 540 }, escala: 2, tactil: false, respetaMeta: true },
   { nombre: 'samsung', modo: 'tizen', viewport: { width: 1920, height: 1080 }, escala: 1, tactil: false }
 ];
 const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp' };
@@ -122,7 +124,7 @@ test('la interfaz cabe y se ve bien en celular, tablet, Android TV y Samsung', a
   try {
     for (const dispositivo of DISPOSITIVOS) {
       await t.test(dispositivo.nombre, async () => {
-        const contexto = await navegador.newContext({ viewport: dispositivo.viewport, deviceScaleFactor: dispositivo.escala, hasTouch: dispositivo.tactil, isMobile: dispositivo.tactil });
+        const contexto = await navegador.newContext({ viewport: dispositivo.viewport, deviceScaleFactor: dispositivo.escala, hasTouch: dispositivo.tactil, isMobile: dispositivo.tactil || Boolean(dispositivo.respetaMeta) });
         await contexto.addInitScript(platformInitScript(dispositivo.modo));
         await contexto.route(url => !url.href.startsWith(base.replace('index.html', '')), answerFromFixtures);
         const pagina = await contexto.newPage();
@@ -136,6 +138,24 @@ test('la interfaz cabe y se ve bien en celular, tablet, Android TV y Samsung', a
         await pagina.waitForSelector('.dbody .ep');
         const ficha = await pagina.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         await pagina.screenshot({ path: path.join(CAPTURAS, dispositivo.nombre + '-ficha.png') });
+        await pagina.evaluate(() => window.telonBack());
+        // El inicio queda bajado: Ajustes igual tiene que abrir arriba.
+        await pagina.evaluate(() => { document.querySelector('#screen .scroll').scrollTop = 400; });
+        await pagina.click('[data-act="tab:settings"]');
+        await pagina.waitForSelector('.set-card');
+        const ajustes = await pagina.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        const scrollAlEntrar = await pagina.evaluate(() => document.querySelector('#screen .scroll').scrollTop);
+        // Repintar la misma pestaña (cambiar un interruptor) sí conserva dónde estaba el usuario.
+        const scrollTrasCambio = await pagina.evaluate(() => {
+          document.querySelector('#screen .scroll').scrollTop = 150;
+          document.querySelector('[data-act="togglesubs"]').click();
+          return document.querySelector('#screen .scroll').scrollTop;
+        });
+        await pagina.evaluate(() => { document.querySelector('[data-act="togglesubs"]').click(); document.querySelector('#screen .scroll').scrollTop = 0; });
+        await pagina.screenshot({ path: path.join(CAPTURAS, dispositivo.nombre + '-ajustes.png') });
+        await pagina.click('.set-card[data-act="showprofiles"]');
+        await pagina.waitForSelector('.pf-grid');
+        await pagina.screenshot({ path: path.join(CAPTURAS, dispositivo.nombre + '-perfiles.png') });
         await contexto.close();
 
         assert.deepEqual(errores, []);
@@ -143,6 +163,9 @@ test('la interfaz cabe y se ve bien en celular, tablet, Android TV y Samsung', a
         assert.equal(inicio.esTv, !dispositivo.tactil, 'interfaz equivocada para ' + dispositivo.nombre);
         assert.ok(inicio.desborde <= 0, `el inicio se desborda ${inicio.desborde}px`);
         assert.ok(ficha <= 0, `la ficha se desborda ${ficha}px`);
+        assert.ok(ajustes <= 0, `los ajustes se desbordan ${ajustes}px`);
+        assert.equal(scrollAlEntrar, 0, 'al cambiar de pestaña se arrastró el scroll de la anterior');
+        assert.equal(scrollTrasCambio, 150, 'repintar la misma pestaña perdió el scroll');
         assert.ok(inicio.navVisible, 'la navegación no está a la vista');
         assert.ok(inicio.tarjetas > 0, 'no se ven tarjetas');
       });

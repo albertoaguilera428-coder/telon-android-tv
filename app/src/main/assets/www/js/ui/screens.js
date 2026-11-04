@@ -36,10 +36,10 @@ pestaña activa y arma la barra de navegación.
     const lista = perfiles.all();
     const tarjetas = lista.map(p => `<button class="pf-card" data-act="pickprofile:${escapeHTML(p.id)}">${pfAvatarHTML(p)}<span class="pf-name">${escapeHTML(p.name)}</span></button>`).join('');
     const tarjetaNueva = `<button class="pf-card" data-act="addprofile"><span class="pf-avatar pf-add"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="pf-name">Añadir perfil</span></button>`;
-    const acciones = lista.length ? `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn out" data-act="editprofileimg">Cambiar foto</button><button class="btn out" data-act="manageprofiles">Administrar</button></div>` : '';
+    const acciones = lista.length ? `<div class="fila-acciones pf-acciones"><button class="btn out" data-act="editprofileimg">Cambiar foto</button><button class="btn out" data-act="manageprofiles">Administrar</button></div>` : '';
     return `<div class="pf-screen"><span class="pf-title">¿Quién está viendo?</span><div class="pf-grid">${tarjetas}${tarjetaNueva}</div>
     ${acciones}
-    <input type="file" id="pffile" accept="image/*" style="display:none"></div>`;
+    <input type="file" id="pffile" accept="image/*" hidden></div>`;
   }
 
   // ============================================================
@@ -53,15 +53,15 @@ pestaña activa y arma la barra de navegación.
     // Quitar un addon pide dos toques: el primero arma la confirmación, el segundo borra.
     const confirmando = estado.confirmarBorrado === addon.base;
     return `<div class="item"><div class="logo48 ${toneClass(m.name)}">${logo || escapeHTML(toInitials(m.name))}</div>
-      <div class="itext"><b>${escapeHTML(m.name)} <span style="font-weight:400">v${escapeHTML(m.version || '?')}</span></b><span>${escapeHTML(m.description || addon.base)}</span><div class="res">${recursos.map(r => `<i>${escapeHTML(r)}</i>`).join('')}</div></div>
+      <div class="itext"><b>${escapeHTML(m.name)} <span class="version">v${escapeHTML(m.version || '?')}</span></b><span>${escapeHTML(m.description || addon.base)}</span><div class="res">${recursos.map(r => `<i>${escapeHTML(r)}</i>`).join('')}</div></div>
       <button class="del ${confirmando ? 'sure' : ''}" data-act="del:${escapeHTML(addon.base)}" aria-label="Quitar ${escapeHTML(m.name)}">${confirmando ? 'Quitar' : ICONOS.trash}</button>
       <button class="switch" role="switch" aria-checked="${addon.enabled}" aria-label="Activar ${escapeHTML(m.name)}" data-act="toggle:${escapeHTML(addon.base)}"><i></i></button></div>`;
   }
 
   function addonsHTML() {
-    const instalados = estado.addons.length ? `<div class="list">${estado.addons.map(addonItemHTML).join('')}</div>` : '<p class="hint" style="padding:0 16px">No hay addons instalados.</p>';
+    const instalados = estado.addons.length ? `<div class="list">${estado.addons.map(addonItemHTML).join('')}</div>` : '<p class="hint con-margen">No hay addons instalados.</p>';
     return `<div class="head"><h1>Addons</h1><p>Cada addon aporta catálogos, fuentes de video o subtítulos. Activa solo los que quieras.</p></div>
-    <main class="scroll" style="padding-top:12px">
+    <main class="scroll con-aire">
       <div class="addwrap"><label for="addurl">Añadir addon por enlace</label>
         <div class="addrow"><input id="addurl" type="url" inputmode="url" placeholder="https://…/manifest.json" value="${escapeHTML(estado.urlNueva)}" autocomplete="off" autocapitalize="off"><button class="btn" data-act="install" ${estado.instalando ? 'disabled' : ''}>${estado.instalando ? '…' : 'Instalar'}</button></div>
         ${estado.errorInstalar ? `<p class="err" role="alert">${escapeHTML(estado.errorInstalar)}</p>` : ''}
@@ -105,15 +105,15 @@ pestaña activa y arma la barra de navegación.
   function historyListHTML() {
     const entradas = sortByRecent(estado.historial);
     if (!entradas.length) return `<div class="empty"><h3>Sin historial</h3><p>Lo que veas aparecerá aquí para retomarlo.</p></div>`;
-    const filas = entradas.map(e => `<button class="hrow" data-act="resume" data-k="${escapeHTML(e.key)}">${posterHTML({ name: e.name, poster: e.poster })}<div class="itext" style="flex:1"><b>${escapeHTML(e.name)}</b><span>${escapeHTML(e.label || '')}</span><div class="prog" style="position:static;margin-top:6px;background:#4A4458"><i style="width:${progressPercent(e)}%"></i></div></div></button>`).join('');
-    return `<div class="list" style="padding-top:16px">${filas}</div>`;
+    const filas = entradas.map(e => `<button class="hrow" data-act="resume" data-k="${escapeHTML(e.key)}">${posterHTML({ name: e.name, poster: e.poster })}<div class="itext"><b>${escapeHTML(e.name)}</b><span>${escapeHTML(e.label || '')}</span><div class="prog"><i style="width:${progressPercent(e)}%"></i></div></div></button>`).join('');
+    return `<div class="list con-aire">${filas}</div>`;
   }
 
   function libHTML() {
     const enLista = estado.pestanaBiblioteca === 'list';
-    return `<div class="head" style="padding-bottom:0"><h1>Biblioteca</h1></div>
+    return `<div class="head"><h1>Biblioteca</h1></div>
     <div class="tabs"><button class="${enLista ? 'on' : ''}" data-act="libtab:list">Mi lista</button><button class="${estado.pestanaBiblioteca === 'hist' ? 'on' : ''}" data-act="libtab:hist">Historial</button></div>
-    <main class="scroll" style="padding-top:0">${enLista ? savedListHTML() : historyListHTML()}</main>`;
+    <main class="scroll">${enLista ? savedListHTML() : historyListHTML()}</main>`;
   }
 
   // ============================================================
@@ -127,21 +127,21 @@ pestaña activa y arma la barra de navegación.
   }
 
   function verificationCardsHTML() {
-    return `<div class="set-card" data-act="resendverify" style="cursor:pointer"><div class="set-icon" style="background:var(--dorado)"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="0"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div><div class="itext"><b>Reenviar verificación</b><span>Te enviaremos un correo para verificar tu cuenta</span></div></div><div class="set-card" data-act="checkverify" style="cursor:pointer"><div class="set-icon" style="background:var(--primario)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><div class="itext"><b>Ya verifiqué mi correo</b><span>Toca aquí para actualizar el estado</span></div></div>`;
+    return `<div class="set-card" data-act="resendverify"><div class="set-icon amarillo"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="0"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div><div class="itext"><b>Reenviar verificación</b><span>Te enviaremos un correo para verificar tu cuenta</span></div></div><div class="set-card" data-act="checkverify"><div class="set-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><div class="itext"><b>Ya verifiqué mi correo</b><span>Toca aquí para actualizar el estado</span></div></div>`;
   }
 
   function accountHTML() {
     const datosSesion = sesion.get();
     if (!datosSesion) {
-      return `<div class="auth-form"><input id="authname" type="text" placeholder="Nombre" class="auth-input"><input id="authemail" type="email" placeholder="Correo electrónico" class="auth-input"><input id="authpass" type="password" placeholder="Contraseña (mín. 6 caracteres)" class="auth-input"><button class="btn pri" data-act="register" style="width:100%;margin-top:8px">Crear cuenta</button><div style="text-align:center;color:var(--texto-tenue);margin:12px 0;font-size:13px">¿Ya tienes cuenta?</div><button class="btn out" data-act="emaillogin" style="width:100%">Iniciar sesión</button></div>`;
+      return `<div class="auth-form"><input id="authname" type="text" placeholder="Nombre" class="auth-input"><input id="authemail" type="email" placeholder="Correo electrónico" class="auth-input"><input id="authpass" type="password" placeholder="Contraseña (mín. 6 caracteres)" class="auth-input"><button class="btn pri" data-act="register">Crear cuenta</button><div class="auth-separador">¿Ya tienes cuenta?</div><button class="btn out" data-act="emaillogin">Iniciar sesión</button></div>`;
     }
-    const marcaSinVerificar = datosSesion.verified ? '' : ' · <em style="color:var(--dorado)">Sin verificar</em>';
-    const tarjetaSesion = `<div class="set-card"><div class="set-icon">${ICONOS.user}</div><div class="itext"><b>${escapeHTML(datosSesion.name || datosSesion.email)}</b><span>${escapeHTML(datosSesion.email)}${marcaSinVerificar}</span></div><button class="btn out" style="height:36px;font-size:13px" data-act="logout">Cerrar sesión</button></div>`;
+    const marcaSinVerificar = datosSesion.verified ? '' : ' · <em class="aviso-amarillo">Sin verificar</em>';
+    const tarjetaSesion = `<div class="set-card"><div class="set-icon">${ICONOS.user}</div><div class="itext"><b>${escapeHTML(datosSesion.name || datosSesion.email)}</b><span>${escapeHTML(datosSesion.email)}${marcaSinVerificar}</span></div><button class="btn out chico" data-act="logout">Cerrar sesión</button></div>`;
     return tarjetaSesion + (datosSesion.verified ? '' : verificationCardsHTML());
   }
 
   function settingsHTML() {
-    return `<div class="head"><h1>Ajustes</h1></div><main class="scroll" style="padding-top:12px">
+    return `<div class="head"><h1>Ajustes</h1></div><main class="scroll con-aire">
     <div class="set-section"><label>Cuenta</label>${profileCardHTML()}${accountHTML()}</div>
     <div class="set-section"><label>Reproducción</label>
       <div class="set-card" data-act="setquality"><div class="itext"><b>Calidad preferida</b><span>${escapeHTML(preferencias.quality())}</span></div><span class="set-arrow">${ICONOS.back}</span></div>
@@ -194,18 +194,25 @@ pestaña activa y arma la barra de navegación.
     }).join('');
   }
 
+  // Pestaña que está pintada ahora: el scroll solo se conserva al repintar esa misma.
+  let pestanaPintada = null;
+
   function render() {
     if (estado.pantallaPerfiles) {
+      pestanaPintada = null;
       $('#screen').innerHTML = profileScreenHTML();
       $('#nav').innerHTML = '';
       return;
     }
-    // Al volver a pintar conservamos el scroll, si no cada toque te mandaría al inicio de la lista.
+    // Al repintar la misma pestaña conservamos el scroll, si no cada toque te mandaría al inicio de
+    // la lista. Al cambiar de pestaña se empieza arriba: el scroll de otra pantalla no significa nada.
     const focoPrevio = describeFocusedButton();
+    const mismaPestana = pestanaPintada === estado.pestana;
+    pestanaPintada = estado.pestana;
     // La pantalla se pinta de nuevo entera: las tarjetas que se registren son las únicas a la vista.
     clearCards();
     const scrollActual = document.querySelector('#screen .scroll');
-    const scrollPrevio = scrollActual ? scrollActual.scrollTop : 0;
+    const scrollPrevio = scrollActual && mismaPestana ? scrollActual.scrollTop : 0;
     const pantalla = $('#screen');
     if (estado.pestana === 'home') {
       pantalla.innerHTML = homeHTML();

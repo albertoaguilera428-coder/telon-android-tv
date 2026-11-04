@@ -14,7 +14,7 @@ guardar en la lista y la grilla de episodios por temporada.
   const { episodeLabel, episodeNumber, listSeasons, episodesInSeason } = Telon.domain.episodes;
   const { estado, refKey, isInLibrary, toggleLibrary } = Telon.app.state;
   const { prepareTitle, fetchFullMeta, warmUpSources } = Telon.app.catalogService;
-  const { toast, spinnerHTML } = Telon.ui.components;
+  const { toast, skeletonDetailHTML, posterHTML } = Telon.ui.components;
   const ICONOS = Telon.ui.ICONOS;
 
   // ============================================================
@@ -51,11 +51,11 @@ guardar en la lista y la grilla de episodios por temporada.
       const numero = escapeHTML(episodeNumber(episodio, i));
       return `<button class="ep ${entradaHistorial && entradaHistorial.idx === i ? 'seen' : ''}" data-act="play:${i}" aria-label="Episodio ${numero}">${numero}</button>`;
     }).join('');
-    return `<h3 style="font-size:18px;font-weight:500">Episodios</h3>${chipsTemporada}<div class="eps">${botones}</div>`;
+    return `<section class="d-episodios"><h3 class="subtitulo">Episodios</h3>${chipsTemporada}<div class="eps">${botones}</div></section>`;
   }
 
   function detailBodyHTML(detalle, ficha) {
-    if (detalle.cargando) return spinnerHTML('Cargando');
+    if (detalle.cargando) return skeletonDetailHTML();
     const entradaHistorial = estado.historial[refKey(detalle.referencia)];
     const actual = entradaHistorial ? Math.min(entradaHistorial.idx, detalle.episodios.length - 1) : 0;
     const pastillas = [getCountryCode(ficha), ...(ficha.genres || []).slice(0, 3), ficha.releaseInfo || ficha.year,
@@ -64,17 +64,20 @@ guardar en la lista y la grilla de episodios por temporada.
     return `${pastillas.length ? `<div class="pills">${pastillas.map(p => `<i>${escapeHTML(p)}</i>`).join('')}</div>` : ''}
       ${ficha.description ? `<p class="desc">${escapeHTML(ficha.description)}</p>` : ''}
       ${detalle.aviso ? `<p class="err">${escapeHTML(detalle.aviso)}</p>` : ''}
-      <div class="actions"><button class="btn" data-act="play:${actual}">${textoReproducir}</button>
-      <button class="btn out" data-act="savelib">${isInLibrary(detalle.referencia) ? 'Guardado' : 'Guardar'}</button></div>
+      <div class="actions"><button class="btn" data-act="play:${actual}">${ICONOS.play}${textoReproducir}</button>
+      <button class="btn out" data-act="savelib">${isInLibrary(detalle.referencia) ? ICONOS.saveOn + 'Guardado' : ICONOS.save + 'Guardar'}</button></div>
       ${episodesHTML(detalle, entradaHistorial)}`;
   }
 
+  // Encabezado: ambiente de color con el póster desenfocado detrás; el póster nítido y el título
+  // van en el cuerpo (en TV, póster a la izquierda e información a la derecha).
   function renderDetail() {
     const detalle = estado.detalle, contenedor = $('#detail');
     if (!detalle) { contenedor.hidden = true; contenedor.innerHTML = ''; return; }
     const ficha = detalle.ficha || detalle.referencia, fondo = cssUrl(ficha.background || ficha.poster);
-    contenedor.innerHTML = `<div class="dhero ${toneClass(ficha.name)}"${fondo ? ` style="--imagen:${escapeHTML(fondo)}"` : ''}><button class="iconbtn" data-act="closedetail" aria-label="Volver">${ICONOS.back}</button></div>
-    <div class="dbody"><h1>${escapeHTML(ficha.name)}</h1>${detailBodyHTML(detalle, ficha)}</div>`;
+    const variableImagen = fondo ? ` style="--imagen:${escapeHTML(fondo)}"` : '';
+    contenedor.innerHTML = `<div class="dhero ${toneClass(ficha.name)}"${variableImagen}><span class="hero-ambiente"></span><span class="hero-arte"></span><button class="iconbtn" data-act="closedetail" aria-label="Volver">${ICONOS.back}</button></div>
+    <div class="dbody"><div class="d-cabecera"><div class="d-poster">${posterHTML(ficha)}</div><div class="d-info"><h1>${escapeHTML(ficha.name)}</h1>${detailBodyHTML(detalle, ficha)}</div></div></div>`;
   }
 
   function closeDetail() {

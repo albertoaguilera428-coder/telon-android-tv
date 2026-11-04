@@ -20,12 +20,13 @@ Si app/update-service.js encuentra una versión más nueva, ofrece descargar el 
   function showUpdateBanner(version) {
     const banner = document.createElement('div');
     banner.id = 'updateBanner';
-    banner.innerHTML = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px">
-        <div style="background:var(--superficie);border:1px solid var(--borde);border-radius:16px;padding:24px;max-width:320px;width:100%;display:flex;flex-direction:column;gap:14px">
-          <h3 style="font-size:20px;font-weight:700;color:var(--texto)">Nueva versión disponible</h3>
-          <p style="font-size:14px;color:var(--texto-suave);line-height:20px">${escapeHTML(version.notes || 'Hay una actualización de Telón.')}</p>
-          <p style="font-size:12px;color:var(--texto-tenue)">v${escapeHTML(version.version)} · Actual: v${VERSION_TELON}</p>
-          <div style="display:flex;gap:10px" id="updateBtns">
+    banner.innerHTML = `<div class="modal-fondo">
+        <div class="modal">
+          <span class="modal-icono">✦</span>
+          <h3>Nueva versión disponible</h3>
+          <p>${escapeHTML(version.notes || 'Hay una actualización de Telón.')}</p>
+          <p class="modal-nota">v${escapeHTML(version.version)} · Actual: v${VERSION_TELON}</p>
+          <div class="fila-acciones" id="updateBtns">
             <button class="btn" data-update="install">Actualizar</button>
             <button class="btn out" data-update="later">Luego</button>
           </div>
@@ -33,7 +34,7 @@ Si app/update-service.js encuentra una versión más nueva, ofrece descargar el 
       </div>`;
     banner.querySelector('[data-update="install"]').addEventListener('click', () => {
       if (downloadUpdate(version.url)) {
-        banner.querySelector('#updateBtns').innerHTML = '<div class="spin"></div><span style="font-size:13px;color:var(--texto-suave)">Descargando…</span>';
+        banner.querySelector('#updateBtns').innerHTML = '<div class="spin"></div><span class="modal-nota">Descargando…</span>';
       } else {
         window.open(String(version.url));
         banner.remove();
