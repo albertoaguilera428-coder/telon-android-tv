@@ -179,6 +179,26 @@ historial, lista y perfiles (ahí están los datos de los usuarios), los campos 
 protocolo Stremio y los nombres del puente (`TelonBridge`, `window._tvKey`,
 `window.telonBack`).
 
+## Diseño
+
+Estilo "vibrante", definido en `style.css` con variables (`--fondo`, `--degradado`,
+`--radio`…):
+
+- Base violeta muy oscura y degradado de marca rosa → violeta → cian.
+- Títulos en **Unbounded** y texto en **Plus Jakarta Sans**. Las dos van dentro de la app
+  (`fonts/`, licencia OFL incluida), porque la TV puede no tener internet y la CSP solo
+  permite fuentes propias.
+- Los pósters sin imagen usan uno de 6 degradados (`.tono-0` a `.tono-5`), elegido por el
+  título (`toneFor`).
+- El destacado tiñe todo su bloque con los colores del póster: dos capas con la misma
+  imagen, una desenfocada.
+- Celular y TV se diseñan por igual. En TV, el foco del control es un anillo rosa con brillo.
+
+**Compatibilidad en Samsung:** los televisores de 2020 traen Chromium 69. Los pósters no
+usan `aspect-ratio` y `build:tizen` convierte `inset`, pero los espacios entre elementos
+usan `gap` en flexbox, que llegó en Chromium 84 (Tizen 6.5, televisores de 2021). En un
+televisor de 2020 la app funciona, pero con los elementos más juntos.
+
 ## Seguridad
 
 El riesgo principal es el contenido de los addons, que son de terceros: títulos, pósters
