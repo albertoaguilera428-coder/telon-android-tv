@@ -1,39 +1,25 @@
 <!doctype html>
+<!--
+Telón - Página principal del WebView
+Para: Telón TV
+De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+
+MainActivity carga esta página desde los assets. Aquí solo va el esqueleto de la
+interfaz y la lista de módulos; la lógica vive en js/.
+-->
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=1920">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Va primero: decide si somos TV o celular y ajusta el viewport antes del primer pintado. -->
+<script src="js/platform.js"></script>
 <title>Telón</title>
 <link rel="stylesheet" href="style.css">
-<script>
-const FIREBASE_API_KEY = "AIzaSyBuT4FxjE8LYRasc5EOjFGcdgZb3IToK7E";
-const _fbUrl = (ep) => `https://identitytoolkit.googleapis.com/v1/accounts:${ep}?key=${FIREBASE_API_KEY}`;
-const _fbPost = (ep, body) => fetch(_fbUrl(ep), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async r => { const j = await r.json(); if (j.error) throw { code: j.error.message }; return j; });
-const firebase = { auth() { return firebase._auth; }, _auth: {
-  _user: null, _listeners: [],
-  currentUser: null,
-  onAuthStateChanged(cb) { this._listeners.push(cb); cb(this.currentUser); },
-  _notify() { this._listeners.forEach(cb => cb(this.currentUser)); },
-  async createUserWithEmailAndPassword(email, pass) {
-    const j = await _fbPost('signUp', { email, password: pass, returnSecureToken: true });
-    const user = { uid: j.localId, email: j.email, displayName: '', emailVerified: false, _idToken: j.idToken, _refreshToken: j.refreshToken,
-      updateProfile: (p) => _fbPost('update', { idToken: j.idToken, displayName: p.displayName, returnSecureToken: false }).then(() => { user.displayName = p.displayName; }),
-      sendEmailVerification: () => _fbPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: j.idToken }) };
-    this.currentUser = user; this._notify();
-    return { user };
-  },
-  async signInWithEmailAndPassword(email, pass) {
-    const j = await _fbPost('signInWithPassword', { email, password: pass, returnSecureToken: true });
-    const user = { uid: j.localId, email: j.email, displayName: j.displayName || '', emailVerified: j.emailVerified || false, _idToken: j.idToken, _refreshToken: j.refreshToken,
-      sendEmailVerification: () => _fbPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: j.idToken }) };
-    this.currentUser = user; this._notify();
-    return { user };
-  },
-  signOut() { this.currentUser = null; this._notify(); return Promise.resolve(); }
-}};
-</script>
 </head>
 <body>
+<!-- ============================================================ -->
+<!-- ESQUELETO DE LA INTERFAZ (los módulos de js/ui pintan dentro de estos contenedores) -->
+<!-- ============================================================ -->
 <div id="app">
   <div id="screen"></div>
   <nav id="nav" aria-label="Navegación principal"></nav>
@@ -41,6 +27,22 @@ const firebase = { auth() { return firebase._auth; }, _auth: {
 <div id="detail" hidden></div>
 <div id="player" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
-<script src="app.js"></script>
+<!-- El orden importa: cada módulo usa a los que se cargaron antes (ver README, "Arquitectura"). -->
+<script src="js/polyfills.js"></script>
+<script src="js/util.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/addon-client.js"></script>
+<script src="js/addons/narto.js"></script>
+<script src="js/addons/sololatino.js"></script>
+<script src="js/state.js"></script>
+<script src="js/ui/components.js"></script>
+<script src="js/ui/home.js"></script>
+<script src="js/ui/screens.js"></script>
+<script src="js/ui/detail.js"></script>
+<script src="js/ui/player.js"></script>
+<script src="js/ui/tv-remote.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/update.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
