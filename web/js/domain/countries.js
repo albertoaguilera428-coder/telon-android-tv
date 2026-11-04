@@ -20,6 +20,9 @@ const ETIQUETAS_PAIS = { CN: 'China', US: 'EEUU', KR: 'Corea', JP: 'Japón', ES:
 const CODIGOS_EQUIVALENTES = { GB: 'UK' };
 // Nombres en inglés y español. Cada patrón exige el nombre desde el inicio y, en los cortos,
 // la palabra completa: así "Indonesia" no cae en India ni "Estonia" en España.
+// Los países cuyo código son sus dos primeras letras en todas sus formas (España, Brasil,
+// Canadá, Perú, Colombia, Argentina, Australia, Italia, India) no necesitan patrón: el respaldo de
+// getCountryCode ya da su código.
 const ALIAS_PAIS = [
   [/^(CHINA|CHINO|CHINESE|MAINLAND CHINA)\b/, 'CN'],
   [/^(USA|EE\.? ?UU\.?|UNITED STATES|ESTADOS UNIDOS|AMERICAN)\b/, 'US'],
@@ -27,26 +30,18 @@ const ALIAS_PAIS = [
   [/^(JAP[AÓO]N|JAPANESE)\b/, 'JP'],
   [/^(THAI|THAILAND|TAILANDIA)\b/, 'TH'],
   [/^TAIW[AÁ]N\b/, 'TW'],
-  [/^(ESPA[ÑN]A|SPAIN|SPANISH)\b/, 'ES'],
+  [/^(SPAIN|SPANISH)\b/, 'ES'],
   [/^(M[EÉ]XICO|MEXICAN)\b/, 'MX'],
-  [/^(INDIA|INDIAN)\b/, 'IN'],
   [/^(UNITED KINGDOM|GREAT BRITAIN|REINO UNIDO|BRIT|ENGLAND|INGLATERRA)/, 'UK'],
   [/^(GERMANY|GERMAN|ALEMANIA)\b/, 'DE'],
   [/^(FRANCE|FRENCH|FRANCIA)\b/, 'FR'],
-  [/^(ITALY|ITALIAN|ITALIA)\b/, 'IT'],
-  [/^BRA[SZ]IL\b/, 'BR'],
-  [/^CANAD[AÁ]\b/, 'CA'],
-  [/^AUSTRALIA\b/, 'AU'],
   [/^AUSTRIA\b/, 'AT'],
   [/^(RUSSIA|RUSIA|RUSSIAN)\b/, 'RU'],
   [/^INDONESIA\b/, 'ID'],
   [/^(PHILIPPINES|FILIPINAS)\b/, 'PH'],
   [/^(TURKEY|TURQU[IÍ]A|T[UÜ]RKIYE)\b/, 'TR'],
   [/^(UKRAINE|UCRANIA)\b/, 'UA'],
-  [/^(COLOMBIA)\b/, 'CO'],
-  [/^(ARGENTINA)\b/, 'AR'],
   [/^CHILE\b/, 'CL'],
-  [/^PER[UÚ]\b/, 'PE'],
   [/^HONG KONG\b/, 'HK']
 ];
 
@@ -61,7 +56,8 @@ function getCountryCode(ficha) {
   const mayus = String(pais).trim().toUpperCase();
   if (/^[A-Z]{2}$/.test(mayus)) return CODIGOS_EQUIVALENTES[mayus] || mayus;
   const alias = ALIAS_PAIS.find(([patron]) => patron.test(mayus));
-  // Último recurso para países que no conocemos: las dos primeras letras sirven para agrupar.
+  // Sin patrón: las dos primeras letras. Es el código de los países sin patrón y, para los que
+  // no conocemos, sirven para agrupar.
   return alias ? alias[1] : mayus.slice(0, 2);
 }
 

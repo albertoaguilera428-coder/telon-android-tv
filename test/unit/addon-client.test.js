@@ -156,6 +156,43 @@ test('resolveSubs prefiere el subtítulo en español', async () => {
 // CASOS QUE SEÑALARON LAS PRUEBAS DE MUTACIÓN
 // ============================================================
 
+// Un nombre por cada patrón de la tabla. Solo cuenta si el país va al principio: "North Korea" no
+// es Corea del Sur y "Zona China" no es China (cae en sus dos primeras letras, como cualquier
+// país desconocido).
+const UN_NOMBRE_POR_PATRON = [['China', 'CN'], ['USA', 'US'], ['Corea', 'KR'], ['Japón', 'JP'], ['Thailand', 'TH'], ['Taiwán', 'TW'],
+  ['Spain', 'ES'], ['México', 'MX'], ['India', 'IN'], ['Reino Unido', 'UK'], ['Alemania', 'DE'], ['Francia', 'FR'], ['Italia', 'IT'],
+  ['Brasil', 'BR'], ['Canadá', 'CA'], ['Australia', 'AU'], ['Austria', 'AT'], ['Rusia', 'RU'], ['Indonesia', 'ID'], ['Filipinas', 'PH'],
+  ['Turquía', 'TR'], ['Ucrania', 'UA'], ['Colombia', 'CO'], ['Argentina', 'AR'], ['Chile', 'CL'], ['Perú', 'PE'], ['Hong Kong', 'HK']];
+
+test('cada país de la tabla se reconoce solo si va al principio', () => {
+  for (const [nombre, codigo] of UN_NOMBRE_POR_PATRON) {
+    assert.equal(cliente.getCountryCode({ country: nombre }), codigo, nombre);
+    assert.equal(cliente.getCountryCode({ country: 'Zona ' + nombre }), 'ZO', 'Zona ' + nombre);
+  }
+  assert.equal(cliente.getCountryCode({ country: 'North Korea' }), 'NO');
+});
+
+test('Turquía se reconoce en sus formas: Turkey, Turquía, Türkiye y Turkiye', () => {
+  for (const forma of ['Turkey', 'Turquía', 'Türkiye', 'Turkiye']) assert.equal(cliente.getCountryCode({ country: forma }), 'TR', forma);
+});
+
+test('los países sin patrón dan sus dos primeras letras, con o sin tilde', () => {
+  for (const [forma, codigo] of [['Canadá', 'CA'], ['Canada', 'CA'], ['Perú', 'PE'], ['Peru', 'PE'], ['Brazil', 'BR'], ['Italian', 'IT'], ['Indian', 'IN']]) {
+    assert.equal(cliente.getCountryCode({ country: forma }), codigo, forma);
+  }
+});
+
+test('Estados Unidos se reconoce con o sin puntos y espacios', () => {
+  for (const forma of ['EEUU', 'EE UU', 'EE.UU.', 'EE. UU.', 'Estados Unidos', 'United States', 'American']) {
+    assert.equal(cliente.getCountryCode({ country: forma }), 'US', forma);
+  }
+});
+
+test('con varios países manda el primero, también si es un código que se traduce (GB → UK)', () => {
+  assert.equal(cliente.getCountryCode({ countries: ['GB', 'US'] }), 'UK');
+  assert.equal(cliente.getCountryCode({ countries: ['Korea', 'USA'] }), 'KR');
+});
+
 test('getCountryCode compara desde el inicio: "Argentina" no es India ni "Rusia" es EEUU', () => {
   assert.equal(cliente.getCountryCode({ country: 'Argentina' }), 'AR');
   assert.equal(cliente.getCountryCode({ country: 'Rusia' }), 'RU');
