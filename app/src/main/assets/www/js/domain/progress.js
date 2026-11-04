@@ -53,6 +53,5 @@ aparece en "Continuar viendo". Lógica pura: la hora llega como parámetro.
   // Solo se retoma en el mismo episodio y con el mismo video que se guardó.
   const resumePosition = (entrada, indice, idVideo) => entrada && entrada.idx === indice && entrada.videoId === idVideo ? entrada.t : 0;
 
-  Telon.domain.progress = { MAXIMO_HISTORIAL, MARGEN_FINAL_S, refKey, buildHistoryEntry, progressPercent, trimHistory, sortByRecent,
-    continueWatching, resumePosition };
+  Telon.domain.progress = { refKey, buildHistoryEntry, progressPercent, trimHistory, sortByRecent, continueWatching, resumePosition };
 })(window.Telon = window.Telon || {});

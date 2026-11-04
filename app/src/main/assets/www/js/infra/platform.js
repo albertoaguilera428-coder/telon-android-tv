@@ -162,18 +162,7 @@ Se carga en el <head>, antes que todo, para ajustar el viewport antes del primer
   if (nombre === 'tizen') installTizenRemote();
 
   Telon.infra = Telon.infra || {};
-  Telon.infra.platform = {
-    nombre,
-    esTv,
-    // Solo MainActivity puede atrapar el m3u8 de un reproductor embebido (shouldInterceptRequest).
-    admiteEmbed: nombre === 'android',
-    // Las actualizaciones se publican como APK; en Samsung se reinstala el .wgt a mano.
-    admiteActualizacion: nombre === 'android',
-    setOrientation,
-    openEmbed,
-    closeEmbed,
-    downloadUpdate,
-    exitApp,
-    translateTizenKey
-  };
+  Telon.infra.platform = { nombre, esTv, // Solo MainActivity puede atrapar el m3u8 de un reproductor embebido (shouldInterceptRequest).
+    admiteEmbed: nombre === 'android', // Las actualizaciones se publican como APK; en Samsung se reinstala el .wgt a mano.
+    admiteActualizacion: nombre === 'android', setOrientation, openEmbed, closeEmbed, downloadUpdate, translateTizenKey };
 })(window.Telon = window.Telon || {});

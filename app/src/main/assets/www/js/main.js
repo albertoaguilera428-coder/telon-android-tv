@@ -247,6 +247,4 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   reloadAddons();
   Telon.ui.updateBanner.checkForUpdate();
 
-  Telon.main = { ACCIONES, handleBack, reloadAddons };
-
 })(window.Telon = window.Telon || {});

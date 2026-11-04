@@ -123,5 +123,5 @@ a la vez y no esperar para siempre a un servidor que no contesta.
     }
   }
 
-  Telon.infra.http = { ESPERA_POR_DEFECTO_MS, MAXIMO_SIMULTANEAS, MAXIMO_EN_ESPERA, politeFetch, fetchRemoteJSON, parseRetryAfter, activeRequests };
+  Telon.infra.http = { MAXIMO_SIMULTANEAS, MAXIMO_EN_ESPERA, politeFetch, fetchRemoteJSON, parseRetryAfter, activeRequests };
 })(window.Telon = window.Telon || {});

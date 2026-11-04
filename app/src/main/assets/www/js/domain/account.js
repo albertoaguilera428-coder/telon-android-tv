@@ -19,5 +19,5 @@ Validamos antes de llamar a Firebase para dar el mensaje en español y ahorrar l
 
   const validateLogin = (correo, clave) => !correo.trim() || !clave ? 'Escribe correo y contraseña' : null;
 
-  Telon.domain.account = { LARGO_MINIMO_CLAVE, validateRegistration, validateLogin };
+  Telon.domain.account = { validateRegistration, validateLogin };
 })(window.Telon = window.Telon || {});

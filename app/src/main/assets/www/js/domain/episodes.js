@@ -55,6 +55,5 @@ Lógica pura: sin DOM, red ni almacenamiento.
   const episodesInSeason = (episodios, temporada) => episodios.map((episodio, i) => ({ episodio, i })).filter(x => seasonOf(x.episodio) === temporada);
 
   Telon.domain = Telon.domain || {};
-  Telon.domain.episodes = { MAXIMO_EPISODIOS_INFERIDOS, sortVideos, inferEpisodesFromDescription, buildEpisodeList,
-    episodeNumber, episodeLabel, seasonOf, listSeasons, episodesInSeason };
+  Telon.domain.episodes = { sortVideos, buildEpisodeList, episodeNumber, episodeLabel, seasonOf, listSeasons, episodesInSeason };
 })(window.Telon = window.Telon || {});

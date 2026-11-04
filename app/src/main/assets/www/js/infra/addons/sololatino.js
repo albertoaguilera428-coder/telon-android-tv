@@ -208,10 +208,15 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     return { meta: ficha };
   }
 
+  // Los episodios de SoloLatino usan IDs "sl-2x5" (temporada 2, episodio 5); las películas, "sl-<slug>".
+  const PATRON_TEMPORADA_EPISODIO = /^(\d+)x(\d+)$/;
+  // El slug de la serie se recuerda al abrir la ficha; para una película el ID ya es el slug.
+  const slugForVideo = (idVideo, idCompleto) => PATRON_TEMPORADA_EPISODIO.test(idVideo) ? ADDON_SOLOLATINO._slugs[idCompleto] : idVideo;
+
   // Si la ficha no se abrió antes (por ejemplo, viniendo del historial) no tenemos el ID: releemos la página.
   async function rereadImdbId(tipo, idVideo, idCompleto) {
     try {
-      const slug = /^(\d+)x(\d+)$/.test(idVideo) ? ADDON_SOLOLATINO._slugs[idCompleto] : idVideo;
+      const slug = slugForVideo(idVideo, idCompleto);
       if (!slug) return null;
       const ficha = slParseMeta(await slFetch(pagePath(tipo, slug)), 'sl-' + slug);
       if (ficha._idImdb) {
@@ -228,7 +233,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   // Último recurso: buscar el nombre en Cinemeta, que siempre trae IDs de IMDb.
   async function findImdbIdByName(tipo, idVideo, idCompleto) {
     try {
-      const slug = /^(\d+)x(\d+)$/.test(idVideo) ? ADDON_SOLOLATINO._slugs[idCompleto] : idVideo;
+      const slug = slugForVideo(idVideo, idCompleto);
       const nombre = ADDON_SOLOLATINO._nombres['sl-' + (slug || idVideo)] || (slug || idVideo).replace(/-/g, ' ');
       const respuesta = await fetchJSON(URL_CINEMETA + '/catalog/' + tipo + '/top/search=' + encodeURIComponent(nombre) + '.json');
       const coincidencia = (respuesta.metas || []).find(m => m.id && m.id.startsWith('tt'));
@@ -262,7 +267,7 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
     const idImdb = ADDON_SOLOLATINO._idsImdb[idCompleto]
       || await rereadImdbId(tipo, idVideo, idCompleto)
       || await findImdbIdByName(tipo, idVideo, idCompleto);
-    const tempEp = idVideo.match(/^(\d+)x(\d+)$/);
+    const tempEp = idVideo.match(PATRON_TEMPORADA_EPISODIO);
     const fuentes = idImdb ? await fetchInsanosStreams(tipo, tempEp ? idImdb + ':' + tempEp[1] + ':' + tempEp[2] : idImdb) : [];
     if (tempEp) {
       const slug = ADDON_SOLOLATINO._slugs[idCompleto] || ADDON_SOLOLATINO._slugs['sl-' + idVideo];
@@ -320,5 +325,5 @@ ID de IMDb, y como respaldo queda la página del episodio como reproductor embeb
   }
 
   registerVirtualAddon(ADDON_SOLOLATINO, respond);
-  Telon.infra.sololatino = { cacheSl, ADDON_SOLOLATINO, respond, slParseCards, slParseMeta, slugFromName, seedKnownSlug, warmUpSlugForImdb };
+  Telon.infra.sololatino = { ADDON_SOLOLATINO, respond, slParseCards, slParseMeta, slugFromName, seedKnownSlug, warmUpSlugForImdb };
 })(window.Telon = window.Telon || {});

@@ -64,6 +64,5 @@ se pueden mostrar o buscar. Lógica pura: recibe datos y devuelve datos.
   // Tocar el chip activo lo apaga; tocar otro lo cambia.
   const toggleFilterValue = (actual, valor) => actual === valor ? TODOS : valor;
 
-  Telon.domain.catalog = { TODOS, FILTROS_VACIOS, needsExtra, supportsSearch, keepValidMetas, listResourceNames, collectFilterOptions, resetStaleFilters,
-    applyFilters, hasActiveFilters, toggleFilterValue };
+  Telon.domain.catalog = { FILTROS_VACIOS, needsExtra, supportsSearch, keepValidMetas, listResourceNames, collectFilterOptions, resetStaleFilters, applyFilters, hasActiveFilters, toggleFilterValue };
 })(window.Telon = window.Telon || {});

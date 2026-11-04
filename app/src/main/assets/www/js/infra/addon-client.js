@@ -123,9 +123,5 @@ puerta, así que el resto de la app no distingue entre uno real y uno virtual.
     return URL.createObjectURL(new Blob([convertSrtToVtt(texto)], { type: 'text/vtt' }));
   }
 
-  Telon.infra.addonClient = {
-    ESPERA_FUENTES_MS, getJSON, registerVirtualAddon, normalizeBase, buildAddonUrl,
-    resourceName, supportsResource,
-    resolveStreams, resolveSubs, convertSrtToVtt, subBlob
-  };
+  Telon.infra.addonClient = { getJSON, registerVirtualAddon, normalizeBase, buildAddonUrl, supportsResource, resolveStreams, resolveSubs, convertSrtToVtt, subBlob };
 })(window.Telon = window.Telon || {});

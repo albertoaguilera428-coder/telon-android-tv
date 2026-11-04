@@ -161,5 +161,5 @@ los usuarios.
   const resetAllData = () => store.clearAll();
 
   Telon.app = Telon.app || {};
-  Telon.app.state = { SUBTITULOS, perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, isVirtualAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
+  Telon.app.state = { SUBTITULOS, perfiles, preferencias, sesion, estado, refKey, getEnabledAddons, findAddon, saveAddons, isInLibrary, toggleLibrary, clearLibrary, recordProgress, clearHistory, resetAllData };
 })(window.Telon = window.Telon || {});

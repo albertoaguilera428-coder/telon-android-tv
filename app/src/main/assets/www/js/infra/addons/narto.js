@@ -167,5 +167,5 @@ catálogo de tendencias, ficha con capítulos y el enlace directo de cada episod
   }
 
   registerVirtualAddon(ADDON_NARTO, respond);
-  Telon.infra.narto = { cacheNarto, ADDON_NARTO, respond, parseMetaPage, isNartoAddon: base => base === ADDON_NARTO.base || (base || '').includes('/narto') };
+  Telon.infra.narto = { ADDON_NARTO, respond, parseMetaPage, isNartoAddon: base => base === ADDON_NARTO.base || (base || '').includes('/narto') };
 })(window.Telon = window.Telon || {});
