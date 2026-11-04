@@ -259,7 +259,11 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
       updatePlayerUI();
       return;
     }
+    // La lista completa puede quedar en otro orden que la primera (llegaron fuentes mejores): la
+    // que ya se está reproduciendo conserva su lugar en el índice para no saltar de fuente.
+    const reproduciendo = reproductor.fuentes[reproductor.indiceFuente];
     reproductor.fuentes = todasLasFuentes;
+    reproductor.indiceFuente = Math.max(0, todasLasFuentes.indexOf(reproduciendo));
     updatePlayerUI();
   }
 
