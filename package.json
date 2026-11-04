@@ -4,8 +4,8 @@
   "description": "Herramientas de desarrollo de Telón TV: pruebas, lint y empaquetado para Samsung (Tizen).",
   "scripts": {
     "lint": "eslint .",
-    "test:unit": "node --test \"test/unit/**/*.test.js\"",
-    "test:e2e": "node --test --test-concurrency=1 \"test/e2e/**/*.test.js\"",
+    "test:unit": "node --test --test-timeout=20000 \"test/unit/**/*.test.js\"",
+    "test:e2e": "node --test --test-concurrency=1 --test-timeout=60000 \"test/e2e/**/*.test.js\"",
     "test:bdd": "cucumber-js",
     "test": "npm run lint && npm run test:unit && npm run test:bdd && npm run test:e2e",
     "coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include='app/src/main/assets/www/js/**' \"test/unit/**/*.test.js\" test/e2e/flujo.test.js",
