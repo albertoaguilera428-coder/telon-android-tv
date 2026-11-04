@@ -19,7 +19,8 @@ sistema (botón atrás, pausa) y arranca la app.
   const { $, COLORES_PERFIL } = Telon.ui.dom;
   const { toast, findCard } = Telon.ui.components;
   const { homeBody, loadHome, runSearch } = Telon.ui.home;
-  const { render, setTab, install } = Telon.ui.screens;
+  const { render, setTab } = Telon.ui.screens;
+  const { install } = Telon.ui.addonsScreen;
   const { openDetail, renderDetail, closeDetail, toggleLib } = Telon.ui.detail;
   const { openPlayer, closePlayer, playerSheet, saveProgress, resume } = Telon.ui.player;
   const { playerClick } = Telon.ui.playerActions;
