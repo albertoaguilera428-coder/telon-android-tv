@@ -32,6 +32,10 @@ const DIRECCION_POR_TECLA = { 19: 'up', 20: 'down', 21: 'left', 22: 'right' };
 
 const centerOf = rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
 
+// A los lados solo se pasa a algo de la misma fila: al final de una fila el foco se queda quieto
+// en vez de saltar en diagonal a la barra de navegación o a otra sección.
+const sharesRow = (a, b) => a.top < b.top + b.height && b.top < a.top + a.height;
+
 function isInDirection(direccion, dx, dy) {
   if (direccion === 'right') return dx >= UMBRAL_DIRECCION_PX;
   if (direccion === 'left') return dx <= -UMBRAL_DIRECCION_PX;
@@ -58,36 +62,54 @@ function pickNextFocus(rectActual, rectsCandidatos, direccion) {
     const destino = centerOf(rect);
     const dx = destino.x - origen.x, dy = destino.y - origen.y;
     if (!isInDirection(direccion, dx, dy)) return;
+    if ((direccion === 'left' || direccion === 'right') && !sharesRow(rectActual, rect)) return;
     const puntaje = scoreCandidate(direccion, rectActual, dx, dy);
     if (puntaje < mejorPuntaje) { mejorPuntaje = puntaje; mejor = i; }
   });
   return mejor;
 }
 
-function listFocusable() {
-  return [...document.querySelectorAll('button,a,input,[tabindex]')].filter(elemento => {
+// Solo cuenta la capa de arriba: con el reproductor abierto, el reproductor; con la ficha, la
+// ficha. Lo de abajo sigue en la página aunque esté tapado, y el foco no debe irse ahí.
+function activeLayer() {
+  const capa = ['#player', '#detail'].map(selector => document.querySelector(selector)).find(elemento => elemento && !elemento.hidden);
+  return capa || document;
+}
+
+function listFocusable(capa) {
+  return [...capa.querySelectorAll('button,a,input,[tabindex]')].filter(elemento => {
     if (elemento.hidden || elemento.offsetParent === null) return false;
     const rect = elemento.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
   });
 }
 
+const inNavBar = elemento => Boolean(elemento.closest('#nav'));
+
+function focusAndReveal(elemento) {
+  elemento.focus();
+  elemento.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
 function moveTvFocus(direccion) {
-  const enfocables = listFocusable();
+  const enfocables = listFocusable(activeLayer());
   if (!enfocables.length) return;
   const actual = document.activeElement;
   if (!actual || actual === document.body || !enfocables.includes(actual)) {
     // Por separado a propósito: con una lista de selectores querySelector devuelve el primero
     // en el orden del documento, no la pestaña activa.
-    const primero = document.querySelector('#nav button.on') || document.querySelector('#nav button') || enfocables[0];
-    if (primero) primero.focus();
+    const primero = enfocables.find(e => e.matches('#nav button.on')) || enfocables.find(inNavBar) || enfocables[0];
+    focusAndReveal(primero);
     return;
   }
+  const rectActual = actual.getBoundingClientRect();
+  const elegir = lista => { const i = pickNextFocus(rectActual, lista.map(c => c.getBoundingClientRect()), direccion); return i < 0 ? null : lista[i]; };
   const candidatos = enfocables.filter(elemento => elemento !== actual);
-  const indice = pickNextFocus(actual.getBoundingClientRect(), candidatos.map(c => c.getBoundingClientRect()), direccion);
-  if (indice < 0) return;
-  candidatos[indice].focus();
-  candidatos[indice].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // Desde el contenido, la barra de navegación es el último recurso: primero lo que queda en la
+  // pantalla (aunque esté fuera de vista por el scroll) y solo si no hay nada, la barra.
+  const desdeContenido = !inNavBar(actual);
+  const siguiente = (desdeContenido && elegir(candidatos.filter(e => !inNavBar(e)))) || elegir(candidatos);
+  if (siguiente) focusAndReveal(siguiente);
 }
 
 // ============================================================

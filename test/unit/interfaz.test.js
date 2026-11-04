@@ -34,6 +34,15 @@ test('abajo prefiere lo que está en la misma columna', () => {
   assert.equal(tvRemote.pickNextFocus(actual, candidatos, 'down'), 1);
 });
 
+test('al final de una fila, a los lados el foco se queda quieto: no salta en diagonal a otra fila', () => {
+  const actual = rect(0, 300);
+  // Lo único a la derecha está en otra fila (la barra de navegación, arriba).
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(400, 0), rect(400, 600)], 'right'), -1);
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(-400, 0)], 'left'), -1);
+  // Un elemento más alto que comparte parte de la fila sí cuenta (un interruptor junto a su tarjeta).
+  assert.equal(tvRemote.pickNextFocus(actual, [rect(400, 250, 60, 200)], 'right'), 0);
+});
+
 test('si no hay nada en esa dirección, el foco no se mueve', () => {
   assert.equal(tvRemote.pickNextFocus(rect(0, 0), [rect(-300, 0)], 'right'), -1);
 });
@@ -122,13 +131,15 @@ test('el registro valida nombre, correo y largo de la contraseña antes de llama
 // ============================================================
 
 test('a exactamente 20 px ya cuenta como "en esa dirección" para las cuatro flechas', () => {
-  const actual = rect(0, 0, 0, 0);
-  assert.equal(tvRemote.pickNextFocus(actual, [rect(20, 0, 0, 0)], 'right'), 0);
-  assert.equal(tvRemote.pickNextFocus(actual, [rect(-20, 0, 0, 0)], 'left'), 0);
-  assert.equal(tvRemote.pickNextFocus(actual, [rect(0, 20, 0, 0)], 'down'), 0);
-  assert.equal(tvRemote.pickNextFocus(actual, [rect(0, -20, 0, 0)], 'up'), 0);
-  assert.equal(tvRemote.pickNextFocus(actual, [rect(19, 0, 0, 0)], 'right'), -1);
-  assert.equal(tvRemote.pickNextFocus(actual, [rect(-19, 0, 0, 0)], 'left'), -1);
+  // Cajas de 10 px (un elemento real nunca mide cero): lo que se mide es la distancia entre centros.
+  const caja = (x, y) => rect(x, y, 10, 10);
+  const actual = caja(0, 0);
+  assert.equal(tvRemote.pickNextFocus(actual, [caja(20, 0)], 'right'), 0);
+  assert.equal(tvRemote.pickNextFocus(actual, [caja(-20, 0)], 'left'), 0);
+  assert.equal(tvRemote.pickNextFocus(actual, [caja(0, 20)], 'down'), 0);
+  assert.equal(tvRemote.pickNextFocus(actual, [caja(0, -20)], 'up'), 0);
+  assert.equal(tvRemote.pickNextFocus(actual, [caja(19, 0)], 'right'), -1);
+  assert.equal(tvRemote.pickNextFocus(actual, [caja(-19, 0)], 'left'), -1);
 });
 
 test('"misma fila" tolera hasta el 70 % del alto actual (no un mínimo fijo de 25 px)', () => {

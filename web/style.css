@@ -399,7 +399,8 @@ body.tv #nav button .pill{display:none}
 body.tv #nav button.on{color:#fff;background:var(--superficie-2)}
 
 body.tv .appbar{display:none}
-body.tv .scroll{padding-top:104px;gap:44px}
+/* Al hacer scroll con el control, lo enfocado queda debajo de la barra flotante (96 px), no tapado. */
+body.tv .scroll{padding-top:104px;gap:44px;scroll-padding-top:120px;scroll-padding-bottom:40px}
 /* La barra de navegación flota arriba (96 px): los títulos de pantalla empiezan debajo. */
 body.tv .head{padding:120px var(--margen) 6px}
 body.tv .head+.scroll{padding-top:16px}

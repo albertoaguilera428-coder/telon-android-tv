@@ -79,6 +79,22 @@ function handleTizenKeydown(evento, salir) {
   window._tvKey(codigoAndroid);
 }
 
+// ============================================================
+// CONTROL REMOTO DE ANDROID TV
+// ============================================================
+
+// En Android la tecla llega primero al WebView y MainActivity solo recibe las que la página no
+// usó. La flecha abajo la usaba el WebView para hacer scroll: MainActivity nunca se enteraba
+// y el foco no bajaba de la barra. Por eso las flechas y OK se atienden aquí, marcándolas como
+// usadas; las teclas multimedia siguen llegando por MainActivity.
+const TECLAS_NAVEGACION_ANDROID = { 37: 21, 38: 19, 39: 22, 40: 20, 13: 66 };
+
+function handleAndroidTvKeydown(evento) {
+  if (!Object.prototype.hasOwnProperty.call(TECLAS_NAVEGACION_ANDROID, evento.keyCode) || typeof window._tvKey !== 'function') return;
+  evento.preventDefault();
+  window._tvKey(TECLAS_NAVEGACION_ANDROID[evento.keyCode]);
+}
+
 function installTizenRemote(api, salir) {
   TECLAS_MULTIMEDIA_TIZEN.forEach(tecla => {
     try {
@@ -122,9 +138,10 @@ function createAndroidAdapter(puente) {
       return false;
     }
   };
+  const esTv = readAndroidTvFlag(puente);
   return {
     nombre: 'android',
-    esTv: readAndroidTvFlag(puente),
+    esTv,
     // Solo MainActivity puede atrapar el m3u8 de un reproductor embebido (shouldInterceptRequest).
     admiteEmbed: true,
     // Las actualizaciones se publican como APK.
@@ -136,7 +153,7 @@ function createAndroidAdapter(puente) {
     downloadUpdate: url => call('downloadAndInstall', [url]),
     // En Android la salida la maneja MainActivity cuando telonBack() responde false.
     exitApp: () => {},
-    start: () => {}
+    start: () => { if (esTv) document.addEventListener('keydown', handleAndroidTvKeydown); }
   };
 }
 

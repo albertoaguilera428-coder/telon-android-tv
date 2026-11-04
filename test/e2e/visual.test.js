@@ -280,6 +280,67 @@ test('biblioteca, addons, reproductor y avisos se ven bien en los cuatro disposi
   }
 });
 
+// Reproduce lo que reportaron desde un Android TV: con la flecha abajo el foco no bajaba de la
+// barra, porque el navegador usaba la tecla para hacer scroll. Se prueba con teclas físicas, que
+// es como llegan en el WebView, no llamando a _tvKey directamente.
+test('con el control de Android TV el foco recorre la pantalla, entra a la ficha y vuelve', async (t) => {
+  let navegador;
+  try {
+    navegador = await chromium.launch();
+  } catch (error) {
+    t.skip('Chromium no disponible: ' + error.message.split('\n')[0]);
+    return;
+  }
+  const servidor = await startStaticServer();
+  const base = `http://127.0.0.1:${servidor.address().port}/index.html`;
+  try {
+    const contexto = await navegador.newContext({ viewport: { width: 960, height: 540 }, deviceScaleFactor: 2, isMobile: true });
+    await contexto.addInitScript(platformInitScript('android-tv'));
+    await contexto.route(url => !url.href.startsWith(base.replace('index.html', '')), answerFromFixtures);
+    const pagina = await contexto.newPage();
+    const errores = [];
+    pagina.on('pageerror', error => errores.push(error.message));
+    await pagina.goto(base);
+    await pagina.waitForSelector('.card');
+    await pagina.waitForTimeout(300);
+    const foco = () => pagina.evaluate(() => {
+      const elemento = document.activeElement;
+      const caja = elemento.getBoundingClientRect();
+      const barra = document.querySelector('#nav').getBoundingClientRect();
+      return { accion: elemento.dataset.act || '', clave: elemento.dataset.k || '', enBarra: Boolean(elemento.closest('#nav')),
+        enFicha: Boolean(elemento.closest('#detail')), tapadoPorLaBarra: !elemento.closest('#nav') && caja.top < barra.bottom - 1 };
+    });
+    const pulsar = async tecla => { await pagina.keyboard.press(tecla); await pagina.waitForTimeout(150); return foco(); };
+
+    assert.ok((await foco()).enBarra, 'arranca en la barra de navegación');
+    const filtros = await pulsar('ArrowDown');
+    assert.ok(!filtros.enBarra, 'la flecha abajo sale de la barra');
+    await pulsar('ArrowDown');
+    const tarjeta = await pulsar('ArrowDown');
+    assert.equal(tarjeta.accion, 'open');
+    assert.equal(tarjeta.tapadoPorLaBarra, false, 'lo enfocado no queda escondido detrás de la barra');
+    assert.deepEqual(await pulsar('ArrowRight').then(f => f.enBarra), false, 'al final de la fila no salta a la barra');
+
+    await pulsar('Enter');
+    // La ficha se pinta dos veces (cargando y completa); el foco tiene que terminar en Reproducir.
+    await pagina.waitForSelector('#detail .actions');
+    await pagina.waitForTimeout(150);
+    const enFicha = await foco();
+    assert.ok(enFicha.enFicha && enFicha.accion.startsWith('play:'), 'al abrir la ficha, el foco va a Reproducir');
+    for (const tecla of ['ArrowDown', 'ArrowDown', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowLeft']) {
+      assert.ok((await pulsar(tecla)).enFicha, `con la ficha abierta, ${tecla} no lleva el foco a lo que está detrás`);
+    }
+    await pagina.evaluate(() => window.telonBack());
+    await pagina.waitForTimeout(150);
+    assert.equal((await foco()).clave, tarjeta.clave, 'al cerrar la ficha, el foco vuelve a la tarjeta que la abrió');
+    await contexto.close();
+    assert.deepEqual(errores, []);
+  } finally {
+    await navegador.close();
+    servidor.close();
+  }
+});
+
 // El WebView de Android carga la app desde file://: ahí la CSP y las rutas relativas se comportan
 // distinto que por HTTP, así que se prueba también así.
 test('cargada desde file:// (como el WebView de Android) funciona sin violar la CSP', async (t) => {

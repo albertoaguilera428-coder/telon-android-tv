@@ -73,6 +73,37 @@ test('una flecha del control de Samsung llega a window._tvKey', () => {
   app.close();
 });
 
+// En Android la tecla llega primero al WebView: si la página no la marca como usada, el WebView
+// hace scroll con la flecha abajo y MainActivity nunca se entera (el foco no bajaba de la barra).
+test('en Android TV las flechas y OK los atiende la página y quedan marcados como usados', () => {
+  const app = loadApp({ modo: 'android-tv', hasta: 'js/infra/platform.js' });
+  const recibidas = [];
+  app.window._tvKey = codigo => recibidas.push(codigo);
+  const marcadas = [40, 38, 37, 39, 13].map(keyCode => {
+    const evento = new app.window.KeyboardEvent('keydown', { keyCode, cancelable: true });
+    app.document.dispatchEvent(evento);
+    return evento.defaultPrevented;
+  });
+  assert.deepEqual(recibidas, [20, 19, 21, 22, 66]);
+  assert.deepEqual(marcadas, [true, true, true, true, true], 'si no se marcan, el WebView hace scroll en vez de mover el foco');
+  // Lo demás (letras, teclas multimedia) sigue su camino normal hacia MainActivity.
+  const letra = new app.window.KeyboardEvent('keydown', { keyCode: 65, cancelable: true });
+  app.document.dispatchEvent(letra);
+  assert.equal(letra.defaultPrevented, false);
+  app.close();
+});
+
+test('en un celular Android las flechas no se tocan (teclados físicos y escritura normal)', () => {
+  const app = loadApp({ modo: 'android-phone', hasta: 'js/infra/platform.js' });
+  const recibidas = [];
+  app.window._tvKey = codigo => recibidas.push(codigo);
+  const evento = new app.window.KeyboardEvent('keydown', { keyCode: 40, cancelable: true });
+  app.document.dispatchEvent(evento);
+  assert.deepEqual(recibidas, []);
+  assert.equal(evento.defaultPrevented, false);
+  app.close();
+});
+
 test('Atrás en Samsung cierra la app solo si no queda nada abierto', () => {
   const app = loadApp({ modo: 'tizen', hasta: 'js/infra/platform.js' });
   let hayAlgoAbierto = true;
