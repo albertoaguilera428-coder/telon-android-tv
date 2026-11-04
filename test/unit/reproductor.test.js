@@ -70,6 +70,31 @@ test('si la fuente falla, prueba la siguiente y avisa; sin más fuentes muestra 
   app.close();
 });
 
+test('si falla la última fuente, el error se queda a la vista aunque play() también se rechace', async () => {
+  const { app, reproductor, video } = await openPlayer('tizen');
+  // Así se comporta el navegador: el intento de reproducir una fuente rota también se rechaza, y
+  // ese rechazo llega después del aviso de error.
+  const noSoportada = Object.assign(new app.window.Error('sin fuente compatible'), { name: 'NotSupportedError' });
+  video.play = () => Promise.reject(noSoportada);
+  while (reproductor.sesion.indiceFuente < reproductor.sesion.fuentes.length - 1) video.dispatchEvent(new app.window.Event('error'));
+  video.dispatchEvent(new app.window.Event('error'));
+  await new Promise(r => setTimeout(r, 0));
+  assert.match(centerText(app), /No se pudo reproducir este episodio/);
+  assert.ok(app.document.querySelector('#pcenter [data-p="retry"]'), 'Reintentar sigue a la vista');
+  app.close();
+});
+
+test('si el navegador bloquea la reproducción automática, aparece el botón de play', async () => {
+  const { app, video } = await openPlayer('tizen');
+  const bloqueada = Object.assign(new app.window.Error('falta un toque'), { name: 'NotAllowedError' });
+  video.play = () => Promise.reject(bloqueada);
+  app.click('[data-p="sources"]');
+  app.click('[data-p="src:1"]');
+  await new Promise(r => setTimeout(r, 0));
+  assert.ok(app.document.querySelector('#pcenter .bubble'));
+  app.close();
+});
+
 test('cambiar de fuente sigue desde el mismo segundo', async () => {
   const { app, reproductor, video } = await openPlayer();
   setPosition(video, 77);

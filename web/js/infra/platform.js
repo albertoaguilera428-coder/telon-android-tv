@@ -65,6 +65,12 @@ function translateTizenKey(codigoTizen) {
     : null;
 }
 
+// En un campo de texto, OK abre el teclado en pantalla e izquierda/derecha mueven el cursor: esas
+// las atiende el sistema. Arriba y abajo sí se llevan, para poder salir del campo.
+const TECLAS_DEL_CAMPO = [13, 37, 39];
+const isTextField = elemento => Boolean(elemento && elemento.matches && elemento.matches('input:not([type=checkbox]):not([type=radio]):not([type=button]), textarea'));
+const belongsToTextField = evento => TECLAS_DEL_CAMPO.includes(evento.keyCode) && isTextField(evento.target);
+
 function handleTizenKeydown(evento, salir) {
   if (evento.keyCode === TECLA_ATRAS_TIZEN) {
     evento.preventDefault();
@@ -74,7 +80,7 @@ function handleTizenKeydown(evento, salir) {
     return;
   }
   const codigoAndroid = translateTizenKey(evento.keyCode);
-  if (codigoAndroid === null || typeof window._tvKey !== 'function') return;
+  if (codigoAndroid === null || typeof window._tvKey !== 'function' || belongsToTextField(evento)) return;
   evento.preventDefault();
   window._tvKey(codigoAndroid);
 }
@@ -90,7 +96,7 @@ function handleTizenKeydown(evento, salir) {
 const TECLAS_NAVEGACION_ANDROID = { 37: 21, 38: 19, 39: 22, 40: 20, 13: 66 };
 
 function handleAndroidTvKeydown(evento) {
-  if (!Object.prototype.hasOwnProperty.call(TECLAS_NAVEGACION_ANDROID, evento.keyCode) || typeof window._tvKey !== 'function') return;
+  if (!Object.prototype.hasOwnProperty.call(TECLAS_NAVEGACION_ANDROID, evento.keyCode) || typeof window._tvKey !== 'function' || belongsToTextField(evento)) return;
   evento.preventDefault();
   window._tvKey(TECLAS_NAVEGACION_ANDROID[evento.keyCode]);
 }

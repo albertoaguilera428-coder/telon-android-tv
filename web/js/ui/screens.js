@@ -53,32 +53,41 @@ function findEquivalentButton(descripcion) {
 // porque una lista de selectores devuelve el primero en orden del documento, no por prioridad.
 function restoreTvFocus(descripcion) {
   setTimeout(() => {
+    // Si alguien ya puso el foco en un campo a propósito (abrir el buscador), se respeta.
+    if (document.activeElement && document.activeElement.matches('#screen input')) return;
     const objetivo = findEquivalentButton(descripcion) || document.querySelector('#nav button.on')
       || document.querySelector('#screen button') || document.querySelector('#nav button');
     if (objetivo) { objetivo.focus(); objetivo.scrollIntoView({ block: 'nearest' }); }
   }, ESPERA_FOCO_TV_MS);
 }
 
+// En TV la barra superior del celular (buscar, recargar, perfil) no se muestra: buscar va en la
+// navegación; recargar y cambiar de perfil están en Ajustes.
 function navigationHTML() {
-  return PESTANAS_NAVEGACION.map(([clave, etiqueta, icono]) => {
-    const activa = estado.pestana === clave;
+  const pestanas = PESTANAS_NAVEGACION.map(([clave, etiqueta, icono]) => {
+    const activa = estado.pestana === clave && !(plataforma.esTv && estado.busquedaAbierta && clave === 'home');
     return `<button class="${activa ? 'on' : ''}" data-act="tab:${clave}" ${activa ? 'aria-current="page"' : ''}><span class="pill">${icono}</span>${etiqueta}</button>`;
   }).join('');
+  if (!plataforma.esTv) return pestanas;
+  const buscando = estado.busquedaAbierta;
+  return pestanas + `<button class="${buscando ? 'on' : ''}" data-act="search" ${buscando ? 'aria-current="page"' : ''}><span class="pill">${ICONOS.search}</span>Buscar</button>`;
 }
 
 // Pestaña que está pintada ahora: el scroll solo se conserva al repintar esa misma.
 let pestanaPintada = null;
 
 function render() {
+  const focoPrevio = describeFocusedButton();
   if (estado.pantallaPerfiles) {
     pestanaPintada = null;
     $('#screen').innerHTML = profileScreenHTML();
     $('#nav').innerHTML = '';
+    // Sin esto, al crear o borrar un perfil el foco se perdía y el control no tenía de dónde partir.
+    if (plataforma.esTv) restoreTvFocus(focoPrevio);
     return;
   }
   // Al repintar la misma pestaña conservamos el scroll, si no cada toque te mandaría al inicio de
   // la lista. Al cambiar de pestaña se empieza arriba: el scroll de otra pantalla no significa nada.
-  const focoPrevio = describeFocusedButton();
   const mismaPestana = pestanaPintada === estado.pestana;
   pestanaPintada = estado.pestana;
   // La pantalla se pinta de nuevo entera: las tarjetas que se registren son las únicas a la vista.

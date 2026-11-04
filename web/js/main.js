@@ -171,9 +171,11 @@ function confirmAndRun(pregunta, accion) {
   if (confirm(pregunta)) accion();
 }
 
+// El buscador vive en el inicio: si se pide desde otra pestaña (en TV, «Buscar» está en la
+// navegación), se va al inicio con el buscador abierto.
 function toggleSearch() {
-  if (estado.busquedaAbierta) { closeSearch(); return; }
-  updateState({ busquedaAbierta: true });
+  if (estado.busquedaAbierta && estado.pestana === 'home') { closeSearch(); return; }
+  updateState({ pestana: 'home', busquedaAbierta: true, confirmarBorrado: null });
   $('#q').focus();
 }
 

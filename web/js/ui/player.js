@@ -89,10 +89,20 @@ function releaseTimers(reproductor) {
   reproductor.temporizadores.clear();
 }
 
+// Ocultar los controles es volver a "mirando": si el control remoto tenía el foco en un botón
+// del reproductor, lo suelta (un botón invisible con foco no le sirve a nadie). Con un panel
+// abierto nunca se ocultan: el usuario está eligiendo algo.
+function hideUi(reproductor) {
+  if (current() !== reproductor || reproductor.panel) return;
+  const contenedor = $('#player');
+  contenedor.classList.add('hide-ui');
+  if (contenedor.contains(document.activeElement)) document.activeElement.blur();
+}
+
 function scheduleHideUi(reproductor, espera) {
   cancel(reproductor, reproductor._temporizadorUi);
   reproductor._temporizadorUi = schedule(reproductor, () => {
-    if (current() && !current().video.paused) $('#player').classList.add('hide-ui');
+    if (!reproductor.video.paused) hideUi(reproductor);
   }, espera);
 }
 
@@ -105,7 +115,7 @@ function attachVideoListeners(reproductor) {
   v.addEventListener('playing', () => {
     setCenter('');
     cancel(reproductor, reproductor._temporizadorUi);
-    reproductor._temporizadorUi = schedule(reproductor, () => $('#player').classList.add('hide-ui'), OCULTAR_UI_TRAS_REPRODUCIR_MS);
+    reproductor._temporizadorUi = schedule(reproductor, () => hideUi(reproductor), OCULTAR_UI_TRAS_REPRODUCIR_MS);
   });
   v.addEventListener('waiting', () => { if (!v.paused) setCenter('loading'); });
   v.addEventListener('pause', () => {
@@ -134,6 +144,7 @@ function attachVideoListeners(reproductor) {
       playStream();
       toast('Probando otra fuente…');
     } else {
+      reproductor.estadoCarga = 'error';
       setCenter('error', 'No se pudo reproducir este episodio. Prueba con otra fuente o revisa el addon.');
     }
   });
@@ -273,8 +284,17 @@ function playStream() {
   if (iframeAnterior) iframeAnterior.remove();
   if (fuente._tipo === 'embed') { playEmbed(reproductor, fuente); return; }
   startNativeVideo(reproductor, fuente.url);
-  reproductor.video.play().catch(() => setCenter('paused'));
+  reproductor.video.play().catch(error => showPausedIfBlocked(reproductor, error));
   updatePlayerUI();
+}
+
+// play() también se rechaza cuando la fuente no carga, y ese rechazo puede llegar después del
+// aviso de error: pintaba el botón de play encima de «No se pudo reproducir» y el usuario no veía
+// ni el error ni «Reintentar». El botón de play solo va si el navegador bloqueó la reproducción
+// automática (falta un toque) y la carga no falló.
+function showPausedIfBlocked(reproductor, error) {
+  if (current() !== reproductor || reproductor.estadoCarga === 'error') return;
+  if (error && error.name === 'NotAllowedError') setCenter('paused');
 }
 
 function togglePlayback(v) {

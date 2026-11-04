@@ -9,12 +9,34 @@ No reproduce nada ni guarda nada: solo lee el reproductor actual y pinta.
 */
 'use strict';
 
+import * as plataforma from '../infra/platform.js';
 import { episodeLabel, episodeNumber, seasonOf, listSeasons, episodesInSeason } from '../domain/episodes.js';
 import { estado, isInLibrary } from '../app/state.js';
 import { $, escapeHTML, safeUrl } from './dom.js';
 import { ICONOS } from './icons.js';
 
 const current = () => estado.reproductor;
+
+// ============================================================
+// FOCO DEL CONTROL REMOTO (TV)
+// ============================================================
+
+// La barra y los paneles se vuelven a pintar después de cada acción (silenciar, velocidad,
+// subtítulos). En TV el botón enfocado desaparecía con el repintado y el foco se perdía: se
+// devuelve al botón equivalente (mismo data-p).
+function repaintKeepingFocus(contenedor, pintar) {
+  const enfocado = document.activeElement;
+  const accionPrevia = plataforma.esTv && enfocado && contenedor.contains(enfocado) && enfocado.dataset ? enfocado.dataset.p : null;
+  pintar();
+  if (!accionPrevia) return;
+  const equivalente = [...contenedor.querySelectorAll('[data-p]')].find(boton => boton.dataset.p === accionPrevia);
+  if (equivalente) equivalente.focus();
+}
+
+// El botón que abrió el panel: al cerrarlo, el foco vuelve ahí. Se guarda también su acción por
+// si la barra se repintó mientras el panel estaba abierto (el botón original ya no existe).
+let botonQueAbrioPanel = null;
+let accionQueAbrioPanel = null;
 
 // ============================================================
 // PLANTILLA
@@ -51,6 +73,8 @@ function setCenter(modo, mensaje) {
   const centro = $('#pcenter');
   if (!centro) return;
   centro.innerHTML = CENTROS[modo] ? CENTROS[modo](mensaje) : '';
+  // Si falla la reproducción, en TV el foco va a «Reintentar»: si no, no había cómo llegar.
+  if (modo === 'error' && plataforma.esTv) centro.querySelector('[data-p="retry"]').focus();
 }
 
 function setProgressBar(fraccion) {
@@ -89,7 +113,7 @@ function updatePlayerUI() {
   $('#ptitle').textContent = sesion.ficha.name;
   $('#pep').textContent = [etiquetaEp && etiquetaEp + ' de ' + sesion.episodios.length, tituloEp].filter(Boolean).join(' · ');
   $('#psrc').textContent = sourceLabel(reproductor);
-  $('#prail').innerHTML = railHTML(reproductor);
+  repaintKeepingFocus($('#prail'), () => { $('#prail').innerHTML = railHTML(reproductor); });
 }
 
 // ============================================================
@@ -133,11 +157,40 @@ function sourcesSheetHTML(reproductor) {
 
 const PANELES = { eps: episodesSheetHTML, subs: subtitlesSheetHTML, src: sourcesSheetHTML };
 
+// En TV el foco entra al panel (al episodio o fuente actual, o al primer ajuste) y, al
+// cerrarlo, vuelve al botón que lo abrió.
+// En orden de preferencia. Se prueban de a uno: con una lista de selectores, querySelector
+// devuelve el primero en el orden de la página (sería el botón de cerrar).
+const PRIMER_FOCO_PANEL = ['.ep.cur', '.srcopt.on', '.switch', '.ep', '.srcopt', '.sheet [data-p]:not([data-p="keep"])'];
+
+function focusPanelOpener() {
+  const abridor = botonQueAbrioPanel && botonQueAbrioPanel.isConnected ? botonQueAbrioPanel
+    : accionQueAbrioPanel && [...document.querySelectorAll('#player [data-p]')].find(boton => boton.dataset.p === accionQueAbrioPanel && boton.offsetParent !== null);
+  botonQueAbrioPanel = accionQueAbrioPanel = null;
+  if (abridor) abridor.focus();
+}
+
 function playerSheet(modo) {
   const reproductor = current(), caja = $('#psheet');
+  const estabaAbierto = Boolean(reproductor.panel);
+  if (!estabaAbierto && modo && plataforma.esTv) {
+    const enfocado = document.activeElement;
+    botonQueAbrioPanel = enfocado && enfocado.dataset && enfocado.dataset.p ? enfocado : null;
+    accionQueAbrioPanel = botonQueAbrioPanel ? enfocado.dataset.p : null;
+  }
   reproductor.panel = modo;
-  if (!modo) { caja.innerHTML = ''; return; }
-  caja.innerHTML = `<div class="sheetbg" data-p="closesheet"><div class="sheet" data-p="keep"><div class="grab"></div>${PANELES[modo](reproductor)}</div></div>`;
+  if (!modo) {
+    caja.innerHTML = '';
+    if (plataforma.esTv) focusPanelOpener();
+    return;
+  }
+  repaintKeepingFocus(caja, () => {
+    caja.innerHTML = `<div class="sheetbg" data-p="closesheet"><div class="sheet" data-p="keep"><div class="grab"></div>${PANELES[modo](reproductor)}</div></div>`;
+  });
+  if (plataforma.esTv && !caja.contains(document.activeElement)) {
+    const primero = PRIMER_FOCO_PANEL.map(selector => caja.querySelector(selector)).find(Boolean);
+    if (primero) primero.focus();
+  }
 }
 
 export { playerTemplateHTML, setCenter, setProgressBar, updatePlayerUI, playerSheet };
