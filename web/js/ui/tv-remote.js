@@ -92,7 +92,8 @@ function activeLayer() {
 
 function listFocusable(capa) {
   return [...capa.querySelectorAll('button,a,input,[tabindex]')].filter(elemento => {
-    if (elemento.hidden || elemento.offsetParent === null) return false;
+    // Oculto (o dentro de algo oculto) no tiene offsetParent.
+    if (elemento.offsetParent === null) return false;
     const rect = elemento.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
   });
@@ -109,7 +110,8 @@ function moveTvFocus(direccion) {
   const enfocables = listFocusable(activeLayer());
   if (!enfocables.length) return;
   const actual = document.activeElement;
-  if (!actual || actual === document.body || !enfocables.includes(actual)) {
+  // Sin foco (o con el foco en otra capa) se arranca por la barra; body nunca está en la lista.
+  if (!enfocables.includes(actual)) {
     // Por separado a propósito: con una lista de selectores querySelector devuelve el primero
     // en el orden del documento, no la pestaña activa.
     const primero = enfocables.find(e => e.matches('#nav button.on')) || enfocables.find(inNavBar) || enfocables[0];
@@ -117,8 +119,10 @@ function moveTvFocus(direccion) {
     return;
   }
   const rectActual = actual.getBoundingClientRect();
-  const elegir = lista => { const i = pickNextFocus(rectActual, lista.map(c => c.getBoundingClientRect()), direccion); return i < 0 ? null : lista[i]; };
-  const candidatos = enfocables.filter(elemento => elemento !== actual);
+  // pickNextFocus devuelve -1 si no hay nada: lista[-1] es undefined. El elemento actual puede ir
+  // en la lista: está a distancia cero, nunca "en una dirección".
+  const elegir = lista => lista[pickNextFocus(rectActual, lista.map(c => c.getBoundingClientRect()), direccion)];
+  const candidatos = enfocables;
   // Desde el contenido, la barra de navegación es el último recurso: primero lo que queda en la
   // pantalla (aunque esté fuera de vista por el scroll) y solo si no hay nada, la barra.
   const desdeContenido = !inNavBar(actual);
