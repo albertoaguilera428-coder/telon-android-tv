@@ -20,7 +20,8 @@ expone las funciones que llama el sistema (botón atrás, pausa) y arranca la ap
   const { homeBody, loadHome, runSearch } = Telon.ui.home;
   const { render, setTab, install } = Telon.ui.screens;
   const { openDetail, renderDetail, closeDetail, toggleLib } = Telon.ui.detail;
-  const { openPlayer, closePlayer, playerSheet, playerClick, saveProgress, resume } = Telon.ui.player;
+  const { openPlayer, closePlayer, playerSheet, saveProgress, resume } = Telon.ui.player;
+  const { playerClick } = Telon.ui.playerActions;
   const cuenta = Telon.ui.account;
 
   // ============================================================

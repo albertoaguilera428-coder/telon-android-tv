@@ -3,56 +3,49 @@ Telón - Reproductor
 Para: Telón TV
 De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
 
-Reproduce episodio por episodio con el <video> nativo: busca fuentes en todos los
-addons, arranca con la primera que llega, cambia de fuente si una falla, guarda el
-progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
+El núcleo de la reproducción con el <video> nativo: abre y cierra el reproductor, busca
+fuentes en todos los addons, arranca con la primera que llega, cambia de fuente si una
+falla, pasa de episodio y guarda el progreso para "Continuar viendo".
+
+Lo que se dibuja vive en player-view.js, los subtítulos en player-subtitles.js y lo que
+hace cada botón en player-actions.js.
 */
 (function (Telon) {
   'use strict';
 
   const { logIgnored } = Telon.infra.log;
   const plataforma = Telon.infra.platform;
-  const { episodeLabel, episodeNumber, seasonOf, listSeasons, episodesInSeason } = Telon.domain.episodes;
   const { resumePosition } = Telon.domain.progress;
   const { createPlaybackSession } = Telon.domain.playbackSession;
-  const { estado, preferencias, findAddon, isInLibrary } = Telon.app.state;
+  const { estado, preferencias, findAddon } = Telon.app.state;
   const { fetchFullMeta } = Telon.app.catalogService;
   const playback = Telon.app.playbackService;
-  const { $, escapeHTML, safeUrl } = Telon.ui.dom;
+  const { $ } = Telon.ui.dom;
   const { toast } = Telon.ui.components;
-  const { renderDetail, toggleLib } = Telon.ui.detail;
+  const { renderDetail } = Telon.ui.detail;
   const { homeBody } = Telon.ui.home;
   const { render } = Telon.ui.screens;
-  const ICONOS = Telon.ui.ICONOS;
+  const { playerTemplateHTML, setCenter, setProgressBar, updatePlayerUI, playerSheet } = Telon.ui.playerView;
+  const subtitulos = Telon.ui.playerSubtitles;
 
   // ============================================================
   // CONSTANTES
   // ============================================================
 
   const OCULTAR_UI_TRAS_REPRODUCIR_MS = 2000;
-  const OCULTAR_UI_TRAS_TOQUE_MS = 3000;
   const GUARDAR_PROGRESO_CADA_MS = 3000;
   // Algunos reproductores agregan las pistas de subtítulos tarde; reintentamos activarlas un rato.
   const REINTENTOS_SUBTITULOS = 10;
   const ANIMACION_CAMBIO_EPISODIO_MS = 220;
   const DESLIZAMIENTO_MINIMO_PX = 70;
+  const IGNORAR_TOQUE_TRAS_DESLIZAR_MS = 400;
 
   const clamp = (valor, min, max) => Math.max(min, Math.min(max, valor));
   const current = () => estado.reproductor;
 
-
   // ============================================================
   // APERTURA
   // ============================================================
-
-  const PLANTILLA_REPRODUCTOR = () => `<div class="stage" data-p="tap"><video playsinline webkit-playsinline preload="auto"></video></div><div class="shade"></div>
-    <button class="pbtn" data-p="back" aria-label="Cerrar reproductor">${ICONOS.back}</button>
-    <button class="srcchip" data-p="sources" aria-label="Cambiar fuente"><i></i><span id="psrc">Buscando fuente…</span></button>
-    <div class="rail" id="prail"></div>
-    <div class="center" id="pcenter"></div>
-    <div class="pinfo"><h2 id="ptitle"></h2><span id="pep"></span></div>
-    <div class="pbar" id="pbar"><i id="pfill"></i></div>
-    <div id="psheet"></div>`;
 
   function openPlayer(referencia, ficha, episodios, indice) {
     const esNarto = playback.isVerticalFormat(referencia);
@@ -66,7 +59,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     plataforma.setOrientation(esNarto ? 'portrait' : 'landscape');
     const contenedor = $('#player');
     contenedor.hidden = false;
-    contenedor.innerHTML = PLANTILLA_REPRODUCTOR();
+    contenedor.innerHTML = playerTemplateHTML();
     reproductor.video = contenedor.querySelector('video');
     attachVideoListeners(reproductor);
     attachSwipeGesture(reproductor, contenedor.querySelector('.stage'));
@@ -106,6 +99,10 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     }, espera);
   }
 
+  // ============================================================
+  // EVENTOS DEL VIDEO
+  // ============================================================
+
   function attachVideoListeners(reproductor) {
     const v = reproductor.video;
     v.addEventListener('playing', () => {
@@ -121,9 +118,9 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
       cancel(reproductor, reproductor._temporizadorUi);
     });
     v.addEventListener('loadedmetadata', () => onMetadataLoaded(reproductor));
-    v.textTracks.addEventListener('addtrack', onTrackAdded);
+    v.textTracks.addEventListener('addtrack', subtitulos.onTrackAdded);
     v.addEventListener('timeupdate', () => {
-      if (v.duration) $('#pfill').style.width = (v.currentTime / v.duration * 100) + '%';
+      if (v.duration) setProgressBar(v.currentTime / v.duration);
       const ahora = Date.now();
       if (ahora - reproductor.ultimoGuardado > GUARDAR_PROGRESO_CADA_MS && v.currentTime > 0) {
         reproductor.ultimoGuardado = ahora;
@@ -150,33 +147,9 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     v.classList.toggle('contain', v.videoWidth >= v.videoHeight);
     if (reproductor.reanudarEn > 1 && reproductor.reanudarEn < v.duration - 5) v.currentTime = reproductor.reanudarEn;
     reproductor.reanudarEn = 0;
-    const enableAutoSubs = () => {
-      if (!reproductor.sesion.subsActivos) return;
-      for (let i = 0; i < v.textTracks.length; i++) v.textTracks[i].mode = 'showing';
-      applyCueStyle(reproductor);
-    };
-    enableAutoSubs();
-    for (let intento = 1; intento <= REINTENTOS_SUBTITULOS; intento++) schedule(reproductor, enableAutoSubs, intento * 1000);
-    applyCueStyle(reproductor);
-  }
-
-  function onTrackAdded(evento) {
-    const reproductor = current();
-    if (!reproductor || !evento.track) return;
-    if (reproductor.sesion.subsActivos) evento.track.mode = 'showing';
-    const lineaInicial = reproductor.sesion.lineaSubs;
-    // Cada cue nuevo llega con la posición del archivo; la reemplazamos por la que eligió el usuario.
-    evento.track.addEventListener('cuechange', () => {
-      const cues = evento.track.activeCues;
-      if (!cues) return;
-      for (let i = 0; i < cues.length; i++) {
-        try {
-          cues[i].line = current() ? current().sesion.lineaSubs : lineaInicial;
-        } catch (error) {
-          logIgnored('El navegador no dejó mover un subtítulo', error);
-        }
-      }
-    });
+    subtitulos.showTracksIfEnabled(reproductor);
+    for (let intento = 1; intento <= REINTENTOS_SUBTITULOS; intento++) schedule(reproductor, () => subtitulos.showTracksIfEnabled(reproductor), intento * 1000);
+    subtitulos.applyCueStyle(reproductor);
   }
 
   // En el celular lo natural para pasar de capítulo es deslizar vertical, como en las apps de dramas cortos.
@@ -190,7 +163,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
       if (Math.abs(dy) <= DESLIZAMIENTO_MINIMO_PX || Math.abs(dy) <= Math.abs(dx) * 1.5) return;
       // Marcamos el deslizamiento para que el "tap" que dispara el navegador al soltar no pause el video.
       reproductor.deslizado = true;
-      schedule(reproductor, () => { reproductor.deslizado = false; }, 400);
+      schedule(reproductor, () => { reproductor.deslizado = false; }, IGNORAR_TOQUE_TRAS_DESLIZAR_MS);
       changeEpisode(dy < 0 ? 1 : -1);
     }, { passive: true });
   }
@@ -224,24 +197,6 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     playback.saveProgress(reproductor.sesion, segundos, reproductor.video.duration || 0);
   }
 
-  async function attachSubtitle(reproductor, episodio, token) {
-    try {
-      const subtitulo = await playback.findSubtitleTrack(reproductor.sesion.referencia.type, episodio.id);
-      if (!subtitulo || !reproductor.sesion.isCurrentLoad(token)) return;
-      const pista = document.createElement('track');
-      pista.kind = 'subtitles';
-      pista.label = subtitulo.etiqueta;
-      pista.srclang = subtitulo.idioma;
-      pista.default = true;
-      pista.src = subtitulo.src;
-      reproductor.video.appendChild(pista);
-      pista.track.mode = 'showing';
-    } catch (error) {
-      // Si el subtítulo no baja, el episodio igual se ve; no vale la pena cortar la reproducción.
-      logIgnored('No se pudo cargar el subtítulo', error);
-    }
-  }
-
   function resetVideoElement(v) {
     v.pause();
     v.removeAttribute('src');
@@ -259,7 +214,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     resetVideoElement(reproductor.video);
     const embedAnterior = $('#player .embed-frame');
     if (embedAnterior) embedAnterior.remove();
-    $('#pfill').style.width = '0';
+    setProgressBar(0);
     reproductor.reanudarEn = resumePosition(estado.historial[reproductor.sesion.clave], i, episodio.id);
     updatePlayerUI();
     setCenter('loading');
@@ -270,7 +225,7 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
       reproductor.sesion.setSources(fuentes);
       playStream();
     };
-    attachSubtitle(reproductor, episodio, token).catch(error => logIgnored('Falló la búsqueda de subtítulos', error));
+    subtitulos.attachSubtitle(reproductor, episodio, token).catch(error => logIgnored('Falló la búsqueda de subtítulos', error));
     const todasLasFuentes = await playback.findStreams(reproductor.sesion.referencia.type, episodio.id, onFirst);
     if (!reproductor.sesion.isCurrentLoad(token)) return;
     if (!todasLasFuentes.length) {
@@ -325,144 +280,8 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     updatePlayerUI();
   }
 
-  // ============================================================
-  // INTERFAZ DEL REPRODUCTOR
-  // ============================================================
-
-  function loadingHTML(texto) {
-    const reproductor = current();
-    const poster = reproductor && reproductor.sesion.ficha && safeUrl(reproductor.sesion.ficha.poster);
-    const imagen = poster ? `<img class="carga-poster" src="${escapeHTML(poster)}" alt="">` : '';
-    return `<div class="carga">${imagen}<div class="spin"></div><span class="carga-texto">${texto}</span></div>`;
-  }
-
-  const CENTROS = {
-    transition: () => loadingHTML('Cargando siguiente capítulo…'),
-    loading: () => loadingHTML('Cargando capítulo…'),
-    paused: () => `<span class="bubble">${ICONOS.playBig}</span>`,
-    error: mensaje => `<div class="msg" role="alert">${escapeHTML(mensaje)}</div><div class="fila-acciones"><button class="btn" data-p="retry">Reintentar</button><button class="btn out" data-p="sources">Fuentes</button></div>`
-  };
-
-  function setCenter(modo, mensaje) {
-    const centro = $('#pcenter');
-    if (!centro) return;
-    centro.innerHTML = CENTROS[modo] ? CENTROS[modo](mensaje) : '';
-  }
-
-  let temporizadorAviso;
-  function flashSubtitleHint(valor, etiqueta) {
-    let aviso = document.getElementById('_subFlash');
-    if (!aviso) {
-      aviso = document.createElement('div');
-      aviso.id = '_subFlash';
-      document.body.appendChild(aviso);
-    }
-    aviso.innerHTML = `<span class="aviso-valor">${valor}</span><span class="aviso-etiqueta">${etiqueta}</span>`;
-    aviso.className = 'aviso-subtitulos';
-    clearTimeout(temporizadorAviso);
-    temporizadorAviso = setTimeout(() => {
-      aviso.classList.add('saliendo');
-      setTimeout(() => { aviso.remove(); }, 300);
-    }, 600);
-  }
-
-  function applyCueStyle(reproductor) {
-    const v = reproductor.video;
-    if (!v) return;
-    for (let t = 0; t < v.textTracks.length; t++) {
-      const pista = v.textTracks[t];
-      if (!pista.cues) continue;
-      for (let c = 0; c < pista.cues.length; c++) {
-        try {
-          pista.cues[c].line = reproductor.sesion.lineaSubs;
-        } catch (error) {
-          logIgnored('El navegador no dejó mover un subtítulo', error);
-        }
-      }
-    }
-    const reglaCss = `#player video::cue{font-size:${reproductor.sesion.tamanoSubs}px!important;line-height:${reproductor.sesion.tamanoSubs + 8}px!important}`;
-    let estiloSubs = document.getElementById('_subStyle');
-    if (!estiloSubs) {
-      estiloSubs = document.createElement('style');
-      estiloSubs.id = '_subStyle';
-      document.head.appendChild(estiloSubs);
-    }
-    estiloSubs.textContent = reglaCss;
-  }
-
-  function sourceLabel(reproductor) {
-    const fuente = reproductor.sesion.fuentes[reproductor.sesion.indiceFuente];
-    if (!fuente) return reproductor.estadoCarga === 'error' ? 'Sin fuente' : 'Buscando fuente…';
-    const detalle = fuente.name || fuente.title;
-    return fuente.addon.manifest.name + (detalle ? ' · ' + detalle.split('\n')[0] : '');
-  }
-
-  function railHTML(reproductor) {
-    const guardado = isInLibrary(reproductor.sesion.referencia);
-    return `<button data-p="save" class="${guardado ? 'on' : ''}" aria-label="Guardar en mi lista">${guardado ? ICONOS.saveOn : ICONOS.save}Guardar</button>`
-      + (reproductor.sesion.episodios.length > 1 ? `<button data-p="eps" aria-label="Lista de episodios">${ICONOS.eps}Episodios</button>` : '')
-      + (reproductor.sesion.fuentes.length > 1 ? `<button data-p="sources" aria-label="Fuentes">${ICONOS.layers}Fuentes</button>` : '')
-      + `<button data-p="subs" class="${reproductor.sesion.subsActivos ? 'on' : ''}" aria-label="Subtítulos">${reproductor.sesion.subsActivos ? ICONOS.subs : ICONOS.subsOff}Subs</button>`
-      + `<button data-p="mute" aria-label="${reproductor.sesion.silenciado ? 'Activar sonido' : 'Silenciar'}">${reproductor.sesion.silenciado ? ICONOS.mute : ICONOS.vol}${reproductor.sesion.silenciado ? 'Mute' : 'Sonido'}</button>`
-      + `<button data-p="speed" aria-label="Velocidad">${ICONOS.speed}${reproductor.sesion.velocidad === 1 ? '1x' : reproductor.sesion.velocidad + 'x'}</button>`;
-  }
-
-  function updatePlayerUI() {
-    const reproductor = current();
-    if (!reproductor) return;
-    const episodio = reproductor.sesion.episodios[reproductor.sesion.indice];
-    const etiquetaEp = episodeLabel(reproductor.sesion.episodios, reproductor.sesion.indice);
-    const tituloEp = episodio.title && episodio.title !== reproductor.sesion.ficha.name ? episodio.title : '';
-    $('#ptitle').textContent = reproductor.sesion.ficha.name;
-    $('#pep').textContent = [etiquetaEp && etiquetaEp + ' de ' + reproductor.sesion.episodios.length, tituloEp].filter(Boolean).join(' · ');
-    $('#psrc').textContent = sourceLabel(reproductor);
-    $('#prail').innerHTML = railHTML(reproductor);
-  }
-
-  // ============================================================
-  // PANELES (EPISODIOS, SUBTÍTULOS, FUENTES)
-  // ============================================================
-
-  const sheetHeaderHTML = titulo => `<div class="sh"><h3>${titulo}</h3><button class="iconbtn" data-p="closesheet" aria-label="Cerrar">${ICONOS.close}</button></div>`;
-
-  function episodesSheetHTML(reproductor) {
-    const temporadas = listSeasons(reproductor.sesion.episodios);
-    const episodioActual = reproductor.sesion.episodios[reproductor.sesion.indice];
-    const temporadaActual = episodioActual ? seasonOf(episodioActual) : temporadas[0];
-    const temporadaElegida = estado.temporadaReproductor != null ? estado.temporadaReproductor : temporadaActual;
-    const chipsTemporada = temporadas.length > 1
-      ? `<div class="season-chips">${temporadas.map(t => `<button class="chip${t === temporadaElegida ? ' on' : ''}" data-p="pseason:${t}">${t === 0 ? 'Esp' : 'T' + t}</button>`).join('')}</div>`
-      : '';
-    const botones = episodesInSeason(reproductor.sesion.episodios, temporadaElegida).map(({ episodio, i }) => {
-      const numero = escapeHTML(episodeNumber(episodio, i));
-      return `<button class="ep ${i === reproductor.sesion.indice ? 'cur' : ''}" data-p="ep:${i}" aria-label="Episodio ${numero}">${numero}</button>`;
-    }).join('');
-    return `${sheetHeaderHTML('Episodios')}${chipsTemporada}
-      <div class="eps">${botones}</div>`;
-  }
-
-  function subtitlesSheetHTML(reproductor) {
-    const tamanoSubs = reproductor.sesion.tamanoSubs;
-    return `${sheetHeaderHTML('Subtítulos')}
-      <div class="set-card"><div class="itext"><b>Activados</b></div><button class="switch" role="switch" aria-checked="${reproductor.sesion.subsActivos}" data-p="subtoggle"><i></i></button></div>
-      <div class="ajuste-fila"><span>Posición</span><div class="fila-acciones"><button class="chip" data-p="subpos:-1" aria-label="Subir">▲ Arriba</button><button class="chip" data-p="subpos:1" aria-label="Bajar">▼ Abajo</button></div></div>
-      <div class="ajuste-fila"><span>Tamaño (${tamanoSubs}px)</span><div class="fila-acciones"><button class="chip" data-p="subsize:-2" aria-label="Menor">A−</button><button class="chip" data-p="subsize:2" aria-label="Mayor">A+</button></div></div>`;
-  }
-
-  function sourcesSheetHTML(reproductor) {
-    const opciones = reproductor.sesion.fuentes.length
-      ? reproductor.sesion.fuentes.map((f, i) => `<button class="srcopt ${i === reproductor.sesion.indiceFuente ? 'on' : ''}" data-p="src:${i}">${escapeHTML(f.addon.manifest.name)}<span>${escapeHTML(((f.name || '') + ' ' + (f.title || '')).trim().split('\n')[0] || 'Fuente ' + (i + 1))}</span></button>`).join('')
-      : '<p class="desc">Ningún addon activo ofrece fuentes para este episodio.</p>';
-    return sheetHeaderHTML('Fuentes') + opciones;
-  }
-
-  const PANELES = { eps: episodesSheetHTML, subs: subtitlesSheetHTML, src: sourcesSheetHTML };
-
-  function playerSheet(modo) {
-    const reproductor = current(), caja = $('#psheet');
-    reproductor.panel = modo;
-    if (!modo) { caja.innerHTML = ''; return; }
-    caja.innerHTML = `<div class="sheetbg" data-p="closesheet"><div class="sheet" data-p="keep"><div class="grab"></div>${PANELES[modo](reproductor)}</div></div>`;
+  function togglePlayback(v) {
+    if (v.paused) v.play().catch(error => logIgnored('El navegador no dejó reproducir', error)); else v.pause();
   }
 
   // ============================================================
@@ -505,89 +324,5 @@ progreso para "Continuar viendo" y maneja subtítulos, velocidad y paneles.
     openPlayer(referencia, ficha, episodios, indice);
   }
 
-  // ============================================================
-  // ACCIONES DEL REPRODUCTOR (data-p)
-  // ============================================================
-
-  function togglePlayback(v) {
-    if (v.paused) v.play().catch(error => logIgnored('El navegador no dejó reproducir', error)); else v.pause();
-  }
-
-  // Primer toque muestra los controles; con los controles a la vista, el toque pausa o reanuda.
-  function handleTap(reproductor) {
-    if (reproductor.deslizado || reproductor.panel) return;
-    const contenedor = $('#player');
-    if (contenedor.classList.contains('hide-ui')) {
-      contenedor.classList.remove('hide-ui');
-      scheduleHideUi(reproductor, OCULTAR_UI_TRAS_TOQUE_MS);
-    } else {
-      togglePlayback(reproductor.video);
-    }
-  }
-
-  function updateSubtitleSetting(reproductor, cambio) {
-    applyCueStyle(reproductor);
-    flashSubtitleHint(cambio.valor, cambio.etiqueta);
-    playerSheet('subs');
-  }
-
-  const ACCIONES_REPRODUCTOR = {
-    keep: () => {},
-    tap: handleTap,
-    back: () => closePlayer(),
-    subs: () => playerSheet('subs'),
-    subtoggle: reproductor => {
-      reproductor.sesion.toggleSubtitles();
-      const pistas = reproductor.video.textTracks;
-      for (let i = 0; i < pistas.length; i++) pistas[i].mode = reproductor.sesion.subsActivos ? 'showing' : 'disabled';
-      updatePlayerUI();
-      playerSheet('subs');
-    },
-    subpos: (reproductor, argumento) => {
-      preferencias.saveSubtitleLine(reproductor.sesion.moveSubtitleLine(+argumento));
-      updateSubtitleSetting(reproductor, { valor: +argumento < 0 ? '▲' : '▼', etiqueta: 'Posición' });
-    },
-    subsize: (reproductor, argumento) => {
-      preferencias.saveSubtitleSize(reproductor.sesion.resizeSubtitles(+argumento));
-      updateSubtitleSetting(reproductor, { valor: reproductor.sesion.tamanoSubs + 'px', etiqueta: 'Tamaño' });
-    },
-    mute: reproductor => {
-      reproductor.video.muted = reproductor.sesion.toggleMute();
-      updatePlayerUI();
-    },
-    save: reproductor => { toggleLib(reproductor.sesion.referencia); updatePlayerUI(); },
-    eps: () => playerSheet('eps'),
-    sources: () => playerSheet('src'),
-    closesheet: () => playerSheet(null),
-    pseason: (reproductor, argumento) => { estado.temporadaReproductor = +argumento; playerSheet('eps'); },
-    ep: (reproductor, argumento) => {
-      playerSheet(null);
-      if (+argumento === reproductor.sesion.indice) return;
-      saveProgress(true);
-      loadVideo(+argumento);
-    },
-    // Al cambiar de fuente seguimos desde el mismo segundo.
-    src: (reproductor, argumento) => {
-      playerSheet(null);
-      if (!reproductor.sesion.selectSource(+argumento)) return;
-      reproductor.reanudarEn = reproductor.video.currentTime;
-      playStream();
-    },
-    speed: reproductor => {
-      reproductor.video.playbackRate = reproductor.sesion.cycleSpeed();
-      updatePlayerUI();
-    },
-    retry: reproductor => loadVideo(reproductor.sesion.indice)
-  };
-
-  function playerClick(evento) {
-    const reproductor = current();
-    if (!reproductor) return;
-    const boton = evento.target.closest('[data-p]');
-    if (!boton) return;
-    const [accion, argumento] = boton.dataset.p.split(':');
-    if (Object.prototype.hasOwnProperty.call(ACCIONES_REPRODUCTOR, accion)) ACCIONES_REPRODUCTOR[accion](reproductor, argumento);
-  }
-
-  Telon.ui.player = { openPlayer, closePlayer, loadVideo, playerSheet, playerClick, saveProgress, resume, togglePlayback };
+  Telon.ui.player = { openPlayer, closePlayer, loadVideo, playStream, playerSheet, saveProgress, scheduleHideUi, resume, togglePlayback };
 })(window.Telon = window.Telon || {});

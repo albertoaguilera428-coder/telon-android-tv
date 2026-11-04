@@ -85,7 +85,7 @@ clásicos que comparten `window.Telon`; el orden está en `index.html`.
   Samsung, navegador) con el mismo contrato; nadie pregunta en cuál está.
   `infra/firebase-auth.js` imita el SDK.
 - *Repository*: perfiles, preferencias, sesión, lista e historial en `app/state.js`.
-- *Command*: tablas `data-act` y `data-p` (`main.js`, `ui/player.js`) en lugar de cadenas de `if`.
+- *Command*: tablas `data-act` y `data-p` (`main.js`, `ui/player-actions.js`) en lugar de cadenas de `if`.
 - *Registro de addons virtuales*: cada sitio se registra en `infra/addon-client.js` y responde
   como un addon (abierto a agregar sitios sin tocar el cliente).
 - *Facade*: los servicios de `app/` esconden protocolo, sitios y almacenamiento a las pantallas.
