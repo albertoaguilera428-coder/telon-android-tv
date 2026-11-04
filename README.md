@@ -63,10 +63,12 @@ app/src/main/
         │                caché, protocolo de addons, Narto, SoloLatino, Firebase
         ├── domain/      reglas puras: países, episodios, catálogo, progreso, cuenta,
         │                orden de fuentes y sesión de reproducción
-        ├── app/         estado y repositorios; casos de uso de catálogo, reproducción,
-        │                cuenta y actualización
-        ├── ui/          pantallas, reproductor, control remoto, componentes
-        └── main.js      tabla de acciones y arranque
+        ├── app/         estado (cambia con updateState) y repositorios; casos de uso de
+        │                catálogo, reproducción, cuenta y actualización
+        ├── ui/          una pantalla por archivo (home, *-screen, detail), el reproductor
+        │                (player, player-view, player-subtitles, player-actions), control
+        │                remoto y componentes; screens.js pinta y maneja la navegación
+        └── main.js      tabla de acciones, qué se repinta con cada cambio y arranque
 ```
 
 | Capa | Puede usar | No puede usar |
