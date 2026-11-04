@@ -37,14 +37,14 @@ function buildHistoryEntry({ referencia, ficha, episodios, indice, clave }, segu
 
 const progressPercent = entrada => entrada.dur ? Math.min(100, Math.round(entrada.t / entrada.dur * 100)) : 0;
 
+const sortByRecent = historial => Object.values(historial).sort((a, b) => b.ts - a.ts);
+
 // Conserva las entradas más recientes; el orden de inserción del objeto queda de más nueva a más vieja.
 function trimHistory(historial, maximo = MAXIMO_HISTORIAL) {
   const recortado = {};
-  Object.values(historial).sort((a, b) => b.ts - a.ts).slice(0, maximo).forEach(e => { recortado[e.key] = e; });
+  sortByRecent(historial).slice(0, maximo).forEach(e => { recortado[e.key] = e; });
   return recortado;
 }
-
-const sortByRecent = historial => Object.values(historial).sort((a, b) => b.ts - a.ts);
 
 const continueWatching = historial => sortByRecent(historial)
   .filter(e => e.t > MINIMO_SEGUNDOS_VISTOS).slice(0, MAXIMO_CONTINUAR_VIENDO);
