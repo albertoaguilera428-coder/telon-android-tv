@@ -96,7 +96,8 @@ módulo, y revisa que no haya ciclos y que todo se alcance desde `main.js`.
 - *Adapter* con polimorfismo: `infra/platform.js` arma un adaptador por sistema (Android,
   Samsung, navegador) con el mismo contrato; nadie pregunta en cuál está.
   `infra/firebase-auth.js` imita el SDK.
-- *Repository*: perfiles, preferencias, sesión, lista e historial en `app/state.js`.
+- *Repository*: perfiles, preferencias, sesión, lista e historial en `app/state.js`. La lista
+  y el historial son de cada perfil (claves `lib:<id>` y `hist:<id>`).
 - *Command*: tablas `data-act` y `data-p` (`main.js`, `ui/player-actions.js`) en lugar de cadenas de `if`.
 - *Registro de addons virtuales*: cada sitio se registra en `infra/addon-client.js` y responde
   como un addon (abierto a agregar sitios sin tocar el cliente).
@@ -193,7 +194,9 @@ optimizar, medir con este mismo script.
 **No renombrar sin migración:** las claves de `localStorage` y los campos guardados de
 historial, lista y perfiles (ahí están los datos de los usuarios), los campos del
 protocolo Stremio y los nombres del puente (`TelonBridge`, `window._tvKey`,
-`window.telonBack`).
+`window.telonBack`). Ejemplo: cuando la lista y el historial pasaron a ser de cada
+perfil, `migrateSharedLists` copió lo guardado en `lib` y `hist` a cada perfil existente
+antes de borrar las claves viejas.
 
 ## Diseño
 

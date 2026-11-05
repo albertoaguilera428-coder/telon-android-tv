@@ -24,6 +24,10 @@ import { LIMITES_SUBTITULOS } from '../domain/playback-session.js';
 // PERFILES
 // ============================================================
 
+// Mi lista y el historial son de cada perfil: se guardan con su id en la clave ("lib:abc").
+const CLAVES_POR_PERFIL = ['lib', 'hist'];
+const profileKey = (base, idPerfil) => base + ':' + idPerfil;
+
 const perfiles = {
   all() { return store.get('profiles', []); },
   save(lista) { return store.set('profiles', lista); },
@@ -32,16 +36,27 @@ const perfiles = {
     const todos = this.all();
     return todos.find(p => p.id === id) || todos[0] || null;
   },
-  setActive(id) { store.set('activeProfile', id); },
+  // Al cambiar de perfil se cargan su lista y su historial. Lo que se haya guardado sin perfil
+  // (antes de crear el primero) pasa al perfil en vez de quedar huérfano.
+  setActive(id) {
+    store.set('activeProfile', id);
+    migrateSharedLists();
+    loadProfileData();
+  },
   add(nombre, color) {
     const perfil = { id: Date.now().toString(36), name: nombre, color, pin: '' };
     this.save([...this.all(), perfil]);
     return perfil;
   },
+  // Al borrar un perfil se borran también su lista y su historial. Si era el último, la lista
+  // en pantalla se vacía: antes seguía mostrando la del perfil borrado.
   remove(id) {
     const lista = this.all().filter(p => p.id !== id);
     this.save(lista);
-    if (store.get('activeProfile') === id && lista.length) this.setActive(lista[0].id);
+    CLAVES_POR_PERFIL.forEach(base => store.remove(profileKey(base, id)));
+    if (store.get('activeProfile') !== id) return;
+    if (lista.length) this.setActive(lista[0].id);
+    else loadProfileData();
   },
   // Devuelve false si el cambio no se pudo guardar.
   update(id, cambios) {
@@ -51,6 +66,23 @@ const perfiles = {
     return this.all().find(p => p.name.toLowerCase() === nombre.trim().toLowerCase()) || null;
   }
 };
+
+const activeProfileKey = base => { const perfil = perfiles.active(); return perfil ? profileKey(base, perfil.id) : base; };
+
+// Antes la lista y el historial eran uno solo para todos los perfiles del aparato. La primera vez
+// que arranca esta versión se copian a cada perfil existente (nadie pierde nada) y se borra la
+// copia compartida; desde ahí cada perfil lleva lo suyo.
+function migrateSharedLists() {
+  const todos = perfiles.all();
+  if (!todos.length) return;
+  CLAVES_POR_PERFIL.forEach(base => {
+    const compartido = store.get(base, null);
+    if (compartido === null) return;
+    todos.forEach(perfil => { if (store.get(profileKey(base, perfil.id), null) === null) store.set(profileKey(base, perfil.id), compartido); });
+    store.remove(base);
+  });
+}
+migrateSharedLists();
 
 // ============================================================
 // PREFERENCIAS
@@ -99,8 +131,8 @@ const estadoInterno = {
   consultaBuscada: '', // La consulta cuyos resultados se muestran.
   pantallaPerfiles: !perfiles.all().length,
   addons: [], // Los llena reloadDefaultAddons(): la lista viene fija en el código.
-  biblioteca: store.get('lib', []), // Guardada con los campos del protocolo Stremio: [{ base, type, id, name, poster, country }]
-  historial: store.get('hist', {}), // refKey → última posición vista.
+  biblioteca: store.get(activeProfileKey('lib'), []), // Del perfil activo, con los campos del protocolo Stremio: [{ base, type, id, name, poster, country }]
+  historial: store.get(activeProfileKey('hist'), {}), // Del perfil activo: refKey → última posición vista.
   filas: null, filasConError: 0, cargando: false,
   filasBusqueda: null, buscando: false,
   urlNueva: '', instalando: false, errorInstalar: '', confirmarBorrado: null,
@@ -118,6 +150,11 @@ function updateState(cambios) {
   cambiadas.forEach(clave => { estadoInterno[clave] = cambios[clave]; });
   const claves = new Set(cambiadas);
   oyentes.forEach(oyente => oyente(claves));
+}
+
+// Carga la lista y el historial del perfil activo (al elegir otro perfil).
+function loadProfileData() {
+  updateState({ biblioteca: store.get(activeProfileKey('lib'), []), historial: store.get(activeProfileKey('hist'), {}) });
 }
 
 function subscribe(oyente) {
@@ -156,19 +193,19 @@ function toggleLibrary(referencia, ficha = {}) {
   const biblioteca = yaEstaba
     ? estado.biblioteca.filter(x => refKey(x) !== clave)
     : [...estado.biblioteca, { base: referencia.base, type: referencia.type, id: referencia.id, name: ficha.name || referencia.name, poster: ficha.poster || referencia.poster, country: referencia.country }];
-  store.set('lib', biblioteca);
+  store.set(activeProfileKey('lib'), biblioteca);
   updateState({ biblioteca });
   return !yaEstaba;
 }
 
 function clearLibrary() {
-  store.set('lib', []);
+  store.set(activeProfileKey('lib'), []);
   updateState({ biblioteca: [] });
 }
 
 function saveHistory(historial) {
   const recortado = trimHistory(historial);
-  store.set('hist', recortado);
+  store.set(activeProfileKey('hist'), recortado);
   updateState({ historial: recortado });
 }
 

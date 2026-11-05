@@ -314,12 +314,22 @@ async function runJourney(t, navegador, base, modo) {
     });
 
     await etapa('11. Crea un segundo perfil, le pone foto y lo borra', async () => {
+      // Ana guarda una serie para comprobar que cada perfil tiene su propia lista.
+      await persona.choose('#nav [data-act="tab:home"]', 'Inicio');
+      await persona.choose('.card[data-k*="tt001"]', 'Drama Coreano');
+      await pagina.waitForSelector('#detail .actions');
+      await persona.choose('[data-act="savelib"]', 'Guardar');
+      await persona.back();
+      await persona.choose('#nav [data-act="tab:settings"]', 'Ajustes');
       await persona.choose('[data-act="showprofiles"]', 'Cambiar perfil');
       await pagina.waitForSelector('.pf-grid');
       persona.answerNextDialog('Beto');
       await persona.choose('[data-act="addprofile"]', 'Añadir perfil');
       await persona.choose(`[data-act="pickprofile:${await profileId(pagina, 'Beto')}"]`, 'el perfil de Beto');
-      // Mi lista y el historial hoy son compartidos por todos los perfiles (pendiente de decidir).
+      // La Biblioteca recuerda la última pestaña: se elige Mi lista para no mirar el historial.
+      await persona.choose('#nav [data-act="tab:lib"]', 'Biblioteca');
+      await persona.choose('[data-act="libtab:list"]', 'Mi lista');
+      assert.equal(await persona.count('#screen .card'), 0, 'Beto empieza con su propia lista, vacía (la serie de Ana no aparece)');
       await persona.choose('#nav [data-act="tab:home"]', 'Inicio');
       if (!enTv) assert.equal((await persona.text('.appbar .pf-mini')).trim(), 'B', 'arriba se ve el avatar de Beto');
       await persona.choose('#nav [data-act="tab:settings"]', 'Ajustes');
@@ -342,6 +352,9 @@ async function runJourney(t, navegador, base, modo) {
       await persona.choose('[data-act="manageprofiles"]', 'Administrar');
       assert.equal(await persona.count('.pf-card .pf-name:text("Beto")'), 0, 'Beto ya no está');
       await persona.choose(`[data-act="pickprofile:${await profileId(pagina, 'Ana')}"]`, 'el perfil de Ana');
+      await persona.choose('#nav [data-act="tab:lib"]', 'Biblioteca');
+      await persona.choose('[data-act="libtab:list"]', 'Mi lista');
+      assert.equal(await persona.count('.grid3 .card[data-k*="tt001"]'), 1, 'al volver a Ana, su lista sigue con su serie');
     });
 
     await etapa('12. Administra sus addons desde Ajustes', async () => {

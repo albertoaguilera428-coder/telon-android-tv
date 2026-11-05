@@ -32,6 +32,9 @@ const store = {
       return false;
     }
   },
+  remove(clave) {
+    localStorage.removeItem(PREFIJO_ALMACEN + clave);
+  },
   clearAll() {
     localStorage.clear();
   }

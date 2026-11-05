@@ -169,8 +169,8 @@ Con el control: ↑ ↓ ← → son las flechas, **OK** es el botón central y *
 51. En Ajustes, elige **Cambiar perfil**.
     → Vuelve «¿Quién está viendo?».
 52. Crea un segundo perfil y entra con él.
-    → Entra con su nombre y su color. *(Hoy Mi lista y el historial son compartidos por
-    todos los perfiles del aparato; ver «Pendientes».)*
+    → Empieza con Mi lista e historial vacíos: cada perfil tiene lo suyo. Al volver al
+    primero, su lista sigue igual.
 53. **Cambiar foto:** con un enlace a una imagen y, en el celular, desde la galería.
     → La foto aparece en la tarjeta del perfil y en el avatar de arriba.
 54. **Administrar:** borra el segundo perfil escribiendo su nombre.
@@ -240,6 +240,6 @@ Con el control: ↑ ↓ ← → son las flechas, **OK** es el botón central y *
 ## Pendientes encontrados al hacer el recorrido
 
 - **Addons solo se alcanzaba sin catálogos.** Resuelto: opción **Addons** en Ajustes.
-- **Mi lista y el historial son compartidos por todos los perfiles.** Lo que guarda Ana
-  aparece en la lista de Beto. Separarlos por perfil es una decisión de producto (y hay que
-  mover lo ya guardado de cada usuario al perfil que corresponda).
+- **Mi lista y el historial eran compartidos por todos los perfiles.** Resuelto: cada perfil
+  tiene los suyos. Lo que ya estaba guardado se copió a cada perfil existente la primera vez
+  que arrancó la versión nueva, así que nadie perdió nada.
