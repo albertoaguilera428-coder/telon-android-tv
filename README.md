@@ -1,0 +1,349 @@
+# Telón TV
+
+App para ver series y películas desde addons con protocolo Stremio. Un solo código web
+corre en **Android** (celular, tablet y Android TV, dentro de un WebView) y en
+**televisores Samsung** (app Tizen `.wgt`).
+
+## Requisitos
+
+- Node.js 20 o superior (pruebas, lint y empaquetado de la app web, también para el APK).
+- JDK 21 y Android SDK 34 para el APK. Gradle 8.9 no corre con JDK 25.
+- Para Samsung: Tizen Studio con *TV Extensions* y *Samsung Certificate Extension*.
+
+```bash
+npm ci                                 # antes del primer ./gradlew: Gradle empaqueta web/ con esbuild
+npx playwright-core install chromium   # solo para las pruebas de interfaz
+echo "sdk.dir=$HOME/Android/Sdk" > local.properties
+```
+
+## Ejecutar
+
+| Qué | Comando | Resultado |
+|---|---|---|
+| APK de desarrollo | `./gradlew assembleDebug` | `app/build/outputs/apk/debug/app-debug.apk` |
+| APK de release | `./gradlew assembleRelease` | firmado si existe `keystore.properties` (ver abajo) |
+| Paquete Samsung | `npm run build:tizen` | `build/tizen/` y `build/Telon-sin-firmar.wgt` |
+| App web empaquetada | `npm run build:web` | `build/web/` (lo mismo que va dentro del APK) |
+
+Para probar la interfaz en el navegador alcanza con servir `web/` con cualquier servidor
+estático (carga `js/main.js` como módulo, sin empaquetar). Sin puente de Android se abre
+la interfaz táctil. El código es de módulos ES; lo que se instala es un solo `telon.js`
+([0007](docs/decisiones/0007-modulos-es-y-empaquetado.md)).
+
+## Pruebas
+
+```bash
+npm test                 # lint + unitarias + aceptación + flujo/interfaz
+npm run coverage         # cobertura (señal para encontrar huecos, no una meta)
+npm run mutation         # Stryker sobre la lógica de mayor riesgo (horas; mejor en el CI)
+npx stryker run --mutate web/js/domain/account.js   # un archivo: unos minutos
+./gradlew lintDebug testDebugUnitTest
+```
+
+- `test/unit/`: lógica pura, con propiedades (fast-check) donde hay invariantes.
+- `features/`: escenarios Gherkin. Los marcados como "derivados del comportamiento
+  actual" están pendientes de validar con el responsable del producto.
+- `test/e2e/flujo.test.js`: recorre la app completa y compara cada paso con
+  `test/e2e/golden/`. Si un cambio de interfaz es intencional, se regenera con
+  `UPDATE_GOLDEN=1 npm run test:e2e` y el diff se revisa en el PR.
+- `test/e2e/visual.test.js`: Chromium en tamaños de celular, tablet, Android TV y
+  Samsung; deja capturas en `build/capturas/`. Incluye recorridos con el control remoto
+  (teclas físicas) por el reproductor, Ajustes, perfiles, búsqueda y biblioteca.
+- `test/e2e/recorrido-completo.test.js`: una persona nueva usa toda la app, de la primera
+  apertura a salir y volver, siguiendo `docs/pruebas/recorrido-completo.md`: una vez en
+  Android TV solo con flechas y OK (si el control no llega a una opción, falla) y otra en
+  el celular con toques.
+- `test/unit/control-remoto.test.js`: en todas las pantallas, cada acción tiene que ser un
+  botón, enlace o campo que el control pueda alcanzar.
+
+El pipeline (`.github/workflows/`) corre todo esto, más CodeQL y `npm audit`. La
+mutación corre una vez por semana.
+
+## Arquitectura
+
+Monolito en capas (ver [0005](docs/decisiones/0005-arquitectura-en-capas.md)):
+
+```
+app/src/main/java/app/telon/tv/   MainActivity (WebView + puente TelonBridge) y PlaybackRules
+scripts/empaquetar-web.mjs         junta web/js en telon.js (Gradle lo corre antes del APK)
+web/
+├── index.html       esqueleto; carga js/main.js
+└── js/
+        ├── infra/       plataforma, http (429, tope y tiempos), errores, almacenamiento,
+        │                caché, protocolo de addons, Narto, SoloLatino, Firebase
+        ├── domain/      reglas puras: países, episodios, catálogo, progreso, cuenta,
+        │                orden de fuentes y sesión de reproducción
+        ├── app/         estado (cambia con updateState) y repositorios; casos de uso de
+        │                catálogo, reproducción, cuenta y actualización
+        ├── ui/          una pantalla por archivo (home, *-screen, detail), el reproductor
+        │                (player, player-view, player-subtitles, player-actions), control
+        │                remoto y componentes; screens.js pinta y maneja la navegación
+        └── main.js      tabla de acciones, qué se repinta con cada cambio y arranque
+```
+
+| Capa | Puede usar | No puede usar |
+|---|---|---|
+| dominio | otras reglas del dominio | DOM, red, almacenamiento, reloj |
+| infraestructura | otra infraestructura | dominio, aplicación, pantallas |
+| aplicación | dominio, infraestructura | DOM, pantallas |
+| presentación | aplicación, dominio; de infraestructura solo plataforma, registro y tipos de error | red, almacenamiento |
+
+`test/unit/arquitectura.test.js` hace cumplir esta tabla leyendo los `import` de cada
+módulo, y revisa que no haya ciclos y que todo se alcance desde `main.js`.
+
+**Patrones en uso** (solo donde resuelven algo):
+
+- *Adapter* con polimorfismo: `infra/platform.js` arma un adaptador por sistema (Android,
+  Samsung, navegador) con el mismo contrato; nadie pregunta en cuál está.
+  `infra/firebase-auth.js` imita el SDK.
+- *Repository*: perfiles, preferencias, sesión, lista e historial en `app/state.js`. La lista
+  y el historial son de cada perfil (claves `lib:<id>` y `hist:<id>`).
+- *Command*: tablas `data-act` y `data-p` (`main.js`, `ui/player-actions.js`) en lugar de cadenas de `if`.
+- *Registro de addons virtuales*: cada sitio se registra en `infra/addon-client.js` y responde
+  como un addon (abierto a agregar sitios sin tocar el cliente).
+- *Facade*: los servicios de `app/` esconden protocolo, sitios y almacenamiento a las pantallas.
+- *Observer*: el estado solo cambia con `updateState` y avisa a `main.js`, que repinta lo que
+  corresponde a cada clave ([0006](docs/decisiones/0006-estado-con-suscripciones.md)).
+
+No se usan Singleton (las dependencias se toman explícitas del espacio de nombres) ni State
+(el reproductor tiene tres estados simples).
+
+Las decisiones difíciles de revertir están en [docs/decisiones/](docs/decisiones/):
+[0001](docs/decisiones/0001-una-app-web-para-android-y-samsung.md) una app web para Android
+y Samsung, [0002](docs/decisiones/0002-firebase-por-rest.md) Firebase por REST,
+[0003](docs/decisiones/0003-firma-propia-del-release.md) firma propia del release,
+[0004](docs/decisiones/0004-sin-kafka-ni-broker-de-eventos.md) sin Kafka ni broker de eventos,
+[0005](docs/decisiones/0005-arquitectura-en-capas.md) arquitectura en capas,
+[0006](docs/decisiones/0006-estado-con-suscripciones.md) estado con suscripciones,
+[0007](docs/decisiones/0007-modulos-es-y-empaquetado.md) módulos ES y empaquetado.
+
+**Cómo está escrito el código** (guía, secciones 21 a 24):
+
+- *Objetos donde hay reglas que proteger:* la sesión de reproducción
+  (`domain/playback-session.js`) solo cambia por sus métodos, que cuidan los límites. Los
+  datos se leen pero no se asignan desde afuera. La herencia se usa solo en los tipos de
+  error (`infra/errors.js`), donde "es un Error" es cierto.
+- *Funciones puras en el dominio:* reciben datos y devuelven datos, sin DOM, red ni reloj
+  (la hora llega como parámetro). El estado compartido se actualiza creando copias (lista,
+  historial, filtros, addons), nunca cambiando el objeto que otro puede estar leyendo.
+  `test/unit/funcional.test.js` lo comprueba con datos congelados.
+- *Errores:* tipados y con su causa (`HttpError`, `TimeoutError`, `RateLimitError`…); al
+  usuario solo le llegan mensajes pensados para él (`userMessageFor`), nunca textos internos.
+  Lo que nadie atrapa termina en una frontera global en `main.js` que lo registra y avisa.
+- *Closures:* los temporizadores del reproductor se registran y se liberan al cerrarlo; el
+  índice de tarjetas se vacía en cada pintado.
+
+**Límites de consumo y concurrencia:** Telón no expone ninguna API; consume la de addons,
+sitios y Firebase, siempre a través de `infra/http.js`:
+
+- Si un servidor responde `429` se respeta su `Retry-After` (30 s si no lo indica, 10 min
+  como máximo) y no se le pide nada más hasta entonces. No hay reintentos automáticos.
+- Como máximo 8 peticiones simultáneas; el resto espera en una cola de hasta 100 y, si se
+  llena, se rechaza. Medido con los addons de ejemplo, el arranque llega a 7 y una búsqueda
+  a 5, así que en el caso normal no hay espera.
+- Toda petición se corta a los 15 s (60 s para fuentes de video).
+- Las cachés de los sitios tienen tope (100 entradas, 10 min) y descartan lo menos usado.
+- Cargas que se pisan (inicio, búsqueda, recarga de addons, ficha, reproductor) se
+  descartan con un número de secuencia o token: siempre gana la última.
+- La búsqueda espera 350 ms a que se deje de escribir antes de consultar.
+
+**Caché** (guía, sección 25): `infra/cache.js`, usada por SoloLatino y Narto con el patrón
+cache-aside (se consulta, y si falta se descarga y se guarda).
+
+- *Fuente de verdad:* los sitios y addons. La caché solo evita repetir descargas; lista,
+  historial y perfiles **no** son caché, son datos del usuario en el dispositivo.
+- *Frescura:* 10 minutos, porque los catálogos cambian poco. "Recargar addons" vacía las cachés
+  (invalidación explícita) y trae contenido nuevo.
+- *Claves:* incluyen todo lo que cambia el resultado (por ejemplo, tipo y slug en una ficha:
+  `/pelicula/x` y `/serie/x` son páginas distintas).
+- *Estampida:* una sola carga por clave. Una búsqueda pedía la misma página 4 veces (una por
+  catálogo de SoloLatino); ahora la pide 1 vez y los cuatro reciben el resultado.
+- *Errores:* no se guardan; el siguiente pedido vuelve a intentar.
+- *Tamaño:* 100 entradas por sitio; al llenarse se descarta lo usado hace más tiempo (LRU).
+- *Valores congelados:* todos reciben el mismo objeto y nadie puede modificarlo para los demás.
+- *Métricas:* `Telon.infra.sololatino.cacheStats()` y `Telon.infra.narto.cacheStats()`
+  (aciertos, fallos, descartes, cargas compartidas) desde `chrome://inspect`.
+
+No se usan, a propósito:
+
+- *Jitter en el vencimiento:* cada dispositivo vence a su propio ritmo, desde que abrió la
+  app; no hay un servidor que reciba todas las recargas juntas.
+- *stale-while-revalidate:* el contenido no es tan urgente como para justificarlo.
+- *Caché persistente:* guardar páginas en localStorage lo llenaba (ver la corrección del punto 18).
+
+Lo que viene de addons Stremio queda en la caché HTTP del WebView según los
+`Cache-Control` que envía cada addon. `version.json` se pide con `?t=` para no recibir una
+versión vieja. No hay cachés compartidas entre usuarios ni CDN, y nada personal pasa por
+una caché.
+
+**Rendimiento:** todo lo que depende de la cantidad de contenido es lineal (pintar el
+inicio, filtrar y mover el foco con el control, que recorre los elementos enfocables);
+no hay recorridos cuadráticos. Medido con `node scripts/medir-rendimiento.mjs` en
+Chromium headless (AMD EPYC, 2 núcleos):
+
+| Carga | Pintar inicio | Filtrar | Mover foco (por tecla) |
+|---|---|---|---|
+| 200 tarjetas | 2,2 ms | 1,7 ms | 0,9 ms |
+| 2.000 tarjetas | 20 ms | 17 ms | 6,6 ms (p95 17 ms) |
+
+Un televisor es de 5 a 10 veces más lento: con la carga normal (200–400 tarjetas) sobra
+margen. Si los catálogos crecen a miles de tarjetas o se nota demora en el control, lo
+primero es limitar `moveTvFocus` a los elementos cercanos a la pantalla. Antes de
+optimizar, medir con este mismo script.
+
+**No renombrar sin migración:** las claves de `localStorage` y los campos guardados de
+historial, lista y perfiles (ahí están los datos de los usuarios), los campos del
+protocolo Stremio y los nombres del puente (`TelonBridge`, `window._tvKey`,
+`window.telonBack`). Ejemplo: cuando la lista y el historial pasaron a ser de cada
+perfil, `migrateSharedLists` copió lo guardado en `lib` y `hist` a cada perfil existente
+antes de borrar las claves viejas.
+
+## Diseño
+
+Estilo "telón": un teatro a oscuras, definido en `style.css` con variables (`--fondo`,
+`--acento`, `--oro`, `--radio`…):
+
+- Negro cálido de sala; **carmesí** de terciopelo para las acciones (reproducir, guardar) y
+  **oro** de reflector para lo elegido (filtro, pestaña, temporada) y para el foco en TV.
+  Colores sólidos: todo texto cumple contraste AA (el más justo, blanco sobre carmesí,
+  da 6:1).
+- Títulos en **Unbounded** y texto en **Atkinson Hyperlegible Next**, hecha para leerse
+  bien a distancia. Las dos van dentro de la app (`fonts/`, licencia OFL incluida), porque
+  la TV puede no tener internet y la CSP solo permite fuentes propias.
+- Sin degradados en el texto, sin halos de color (las sombras caen) y sin etiquetas encima
+  de los títulos. Los íconos son SVG dibujados, nunca símbolos de texto.
+- Los pósters sin imagen usan uno de 6 tonos de sala (`.tono-0` a `.tono-5`), elegido por
+  el título (`toneFor`).
+- El destacado tiñe todo su bloque con los colores del póster: dos capas con la misma
+  imagen, una desenfocada.
+- Celular y TV se diseñan por igual. Con "reducir movimiento" en el sistema se apagan los
+  brillos y zooms decorativos; el foco y el "cargando" se quedan.
+- Auditado con [Impeccable](https://github.com/pbakaus/impeccable) (detector sobre el
+  código y sobre la app renderizada en celular y TV): 0 hallazgos.
+
+**Compatibilidad en Samsung:** desde televisores de 2021 (Tizen 6.5, Chromium 85). El diseño
+usa `gap` en flexbox (Chromium 84); los pósters no usan `aspect-ratio` y `build:tizen`
+convierte `inset`.
+
+## Seguridad
+
+El riesgo principal es el contenido de los addons, que son de terceros: títulos, pósters
+o géneros armados para inyectar código (XSS). Defensas:
+
+- Todo texto pasa por `escapeHTML` y toda URL por `safeUrl` o `cssUrl` (`js/ui/dom.js`):
+  solo `http(s)`, `data:image` o `blob`, y dentro de `url()` va codificada.
+- No hay manejadores inline (`onerror="…"`). Las imágenes rotas usan `data-fallback`.
+- Content Security Policy en `index.html`: solo scripts propios, sin JavaScript inline ni `eval`.
+- `test/e2e/seguridad.test.js` recorre todas las pantallas con un addon malicioso.
+- El puente de Android solo lo ve la página principal; el WebView de los embeds no lo
+  tiene. Los enlaces externos solo pueden ser `http(s)`.
+
+| Riesgo (OWASP 2025) | En Telón |
+|---|---|
+| SQL injection | No aplica: no hay base de datos; localStorage se usa con claves fijas. |
+| CSRF | No aplica: no hay servidor propio. Firebase recibe el token en el cuerpo, no por cookie. |
+| Control de acceso / IDOR | Las cuentas las controla Firebase. Los perfiles del dispositivo no son un límite de seguridad: no tienen PIN (el campo `pin` existe vacío). Agregarlo es decisión del producto. |
+| Autenticación | Firebase guarda y protege las contraseñas y limita los intentos. La app nunca registra tokens en la consola. Cerrar sesión borra el token del dispositivo, pero Firebase no permite revocarlo desde la app: sigue válido hasta su vencimiento (1 h). |
+
+**Datos y cifrado:**
+
+- No se guardan contraseñas ni hay cifrado propio.
+- Las fotos de perfil se guardan como Base64 (`data:`), que es una codificación, no una
+  protección. Se reducen a 256 px para que entren en el almacenamiento.
+- Firebase y los addons predeterminados van por HTTPS. HTTP queda permitido solo porque
+  hay addons en la red local (`http://192.168.…`).
+- La validación de certificados nunca se desactiva; el lint estricto de Android lo vigila.
+- Pendiente conocido: con `allowBackup` la copia de seguridad de Android incluye el
+  almacenamiento de la app (y con él, el token de sesión).
+
+## Firma del APK de release
+
+El release ya no se firma con la clave de debug, que es pública. Crea
+`keystore.properties` en la raíz del proyecto. Está en `.gitignore`: nunca lo subas.
+
+```properties
+storeFile=telon-release.jks
+storePassword=…
+keyAlias=telon
+keyPassword=…
+```
+
+> Android solo instala una actualización encima si la firma es **la misma** que la de la
+> versión instalada. Las versiones 1 y 2 se firmaron con el `debug.keystore` de la máquina
+> donde se compilaron (`~/.android/debug.keystore`). Para que los que ya la tienen
+> actualicen sin perder nada, firma con ese mismo archivo:
+>
+> ```properties
+> storeFile=/ruta/a/.android/debug.keystore
+> storePassword=android
+> keyAlias=androiddebugkey
+> keyPassword=android
+> ```
+>
+> Cambiar a una clave nueva obliga a todos a desinstalar primero, y al desinstalar se
+> borran los perfiles, Mi lista y el historial del aparato (la cuenta no: está en Firebase).
+> Si se cambia, que sea una sola vez y avisando.
+
+## Publicar una actualización (Android)
+
+La app instalada consulta `https://insanos.net/telon/version.json` cada vez que arranca.
+Si el número publicado es mayor que el suyo (`VERSION_TELON`), muestra «Nueva versión
+disponible» y «Actualizar» abre la descarga del APK.
+
+1. Sube el número en `web/js/app/update-service.js` (`VERSION_TELON`) y en
+   `app/build.gradle` (`versionCode`). Deben ser iguales (lo revisa una prueba). Si
+   `version.json` anuncia un número mayor que el de la app nueva, el aviso no se va nunca.
+2. `npm ci && npm test`, y después `./gradlew assembleRelease` con la firma de siempre
+   (ver arriba). El APK queda en `app/build/outputs/apk/release/app-release.apk`.
+3. Pruébalo primero en un aparato: `adb install -r app-release.apk` actualiza sin borrar
+   datos. Si dice que la firma no coincide, el APK no se firmó con la clave de siempre.
+4. Sube el APK como `https://insanos.net/telon/Telon.apk`.
+5. Edita `version.json` por último: subir el número es lo que avisa a todos.
+
+```json
+{ "version": 3, "url": "https://insanos.net/telon/Telon.apk", "notes": "Qué cambió, en una línea." }
+```
+
+En algunos televisores no hay navegador y «Actualizar» no abre nada: ahí se instala con la
+app Downloader (pegando la URL del APK) o con `adb install -r`. En Samsung no hay aviso: el
+`.wgt` se reinstala a mano (ver «Samsung (Tizen)»).
+
+## Samsung (Tizen)
+
+Requisitos del televisor y del equipo:
+
+1. **TV Samsung de 2021 en adelante (Tizen 6.5 o superior)**, en la misma red que el
+   computador.
+2. **Modo desarrollador**: en la TV, abre *Apps*, marca `1 2 3 4 5` con el control,
+   activa *Developer mode*, escribe la IP del computador y reinicia la TV.
+3. En Tizen Studio, en *Device Manager*, agrega la TV por IP (puerto 26101).
+4. En *Certificate Manager* crea un perfil **Samsung** con la TV ya conectada: así el
+   DUID del televisor queda dentro del certificado de distribuidor. Necesitas una
+   cuenta de Samsung. Los certificados vencen; si la instalación falla con
+   "certificate expired", renuévalos.
+
+Empaquetar, firmar e instalar:
+
+```bash
+TIZEN_PROFILE=MiPerfil npm run build:tizen
+tizen install -n build/Telon.wgt -t <nombre-de-la-tv>
+```
+
+Diferencias con Android: el control remoto se traduce en `platform.js`. Las fuentes
+"embed" de SoloLatino no se ofrecen, porque solo MainActivity puede capturar su video;
+se usan las fuentes directas. Las actualizaciones se hacen reinstalando el `.wgt`.
+
+## Cómo contribuir
+
+- **Ramas** cortas desde `master`, una por tarea (`mejora/…`, `corrige/…`); se borran al integrarse.
+- **Commits** coherentes y en imperativo: `Agrega límite de solicitudes por cliente`.
+  Formato, refactor y funcionalidad van en commits separados. Nunca secretos ni
+  `keystore.properties`.
+- **Pull requests** con la plantilla de `.github/`: problema, solución, pruebas, riesgos
+  y qué documento deja de ser verdad. El CI tiene que pasar.
+- **Merge** con merge commit, para conservar los commits de la rama. Se puede hacer
+  **rebase** solo sobre una rama propia que nadie más usa; nunca sobre `master` ni sobre
+  una rama compartida.
+- **Conflictos:** se resuelven entendiendo ambos lados y luego se corre `npm test`.
+
+Responsable del código y la documentación: Albert Alvear (ver `.github/CODEOWNERS`).

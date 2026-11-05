@@ -1,0 +1,50 @@
+# ============================================================
+# Telón - Análisis estático de seguridad (SAST)
+# Para: Telón TV
+# De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+#
+# CodeQL revisa JavaScript y Java en cada PR y una vez por semana. Un escáner no prueba
+# que la app sea segura; complementa la revisión de dependencias (npm audit en ci.yml).
+# ============================================================
+name: Seguridad
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lenguaje: [javascript, java]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        if: matrix.lenguaje == 'java'
+        with:
+          distribution: temurin
+          java-version: 21
+      # Gradle empaqueta la app web con esbuild antes de armar el APK.
+      - uses: actions/setup-node@v4
+        if: matrix.lenguaje == 'java'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: matrix.lenguaje == 'java'
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.lenguaje }}
+          build-mode: ${{ matrix.lenguaje == 'java' && 'manual' || 'none' }}
+      - name: Compilar para CodeQL
+        if: matrix.lenguaje == 'java'
+        run: bash gradlew --no-daemon assembleDebug
+      - uses: github/codeql-action/analyze@v3

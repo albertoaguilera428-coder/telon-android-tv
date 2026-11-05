@@ -1,0 +1,87 @@
+# ============================================================
+# Telón - Pruebas de mutación (semanal, a demanda y en ramas de mejora)
+# Para: Telón TV
+# De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+#
+# Stryker modifica la lógica de mayor riesgo y verifica que las pruebas lo noten. En una
+# sola máquina tardaba casi 3 horas: se reparte en 5 grupos de tamaño parecido que corren
+# a la vez (unos 40 minutos) y un trabajo final junta los reportes y escribe el puntaje en
+# el resumen de la corrida. Corre una vez por semana, a demanda y en las ramas de mejora
+# (mejora/...) cuando cambian código o pruebas. Cada grupo falla si su puntaje baja del
+# umbral "break" de stryker.config.json.
+# ============================================================
+name: Mutación
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+  push:
+    branches: ['mejora/**']
+    paths: ['web/js/**', 'test/**', 'stryker.config.json', '.github/workflows/mutacion.yml', 'scripts/resumen-mutacion.mjs']
+
+# Si llega un push nuevo mientras corre, la corrida vieja ya no sirve: se cancela.
+concurrency:
+  group: mutacion-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    name: Stryker (${{ matrix.grupo }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      # Si un grupo baja del umbral, los demás terminan igual: así el reporte sale completo.
+      fail-fast: false
+      matrix:
+        include:
+          - grupo: control-remoto
+            archivos: web/js/ui/tv-remote.js
+          - grupo: addons-y-cuenta
+            archivos: web/js/infra/addon-client.js,web/js/domain/sources.js,web/js/domain/account.js
+          - grupo: reproduccion
+            archivos: web/js/domain/playback-session.js,web/js/domain/progress.js
+          - grupo: red-y-paises
+            archivos: web/js/infra/http.js,web/js/domain/countries.js
+          - grupo: cache-y-catalogo
+            archivos: web/js/infra/cache.js,web/js/domain/episodes.js,web/js/domain/catalog.js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Modo incremental: Stryker reutiliza el resultado de los mutantes cuyo código no cambió.
+      # Con el command runner no sabe qué prueba cubre cada mutante, así que NO nota cuando
+      # cambian las pruebas: reutilizaba sobrevivientes que las pruebas nuevas ya matan. Por eso
+      # la caché lleva la huella de las pruebas y la configuración: si cambian, se corre todo.
+      - uses: actions/cache@v4
+        with:
+          path: reports/stryker-incremental-${{ matrix.grupo }}.json
+          key: stryker-${{ matrix.grupo }}-${{ hashFiles('test/**', 'stryker.config.json') }}-${{ github.sha }}
+          restore-keys: stryker-${{ matrix.grupo }}-${{ hashFiles('test/**', 'stryker.config.json') }}-
+      - name: Mutación de ${{ matrix.grupo }}
+        run: npx stryker run --mutate "${{ matrix.archivos }}" --incremental --incrementalFile reports/stryker-incremental-${{ matrix.grupo }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-mutacion-${{ matrix.grupo }}
+          path: build/mutacion/
+
+  resumen:
+    name: Resumen
+    needs: stryker
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: reporte-mutacion-*
+          path: reportes
+      - name: Puntaje total y sobrevivientes
+        run: node scripts/resumen-mutacion.mjs reportes >> "$GITHUB_STEP_SUMMARY"

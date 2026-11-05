@@ -1,11 +1,23 @@
+# Compilación de Android
 *.iml
 .gradle
 /local.properties
 /.idea
-.DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
 app/build/
+
+# Firma de release: nunca al repositorio
+keystore.properties
+*.jks
+*.keystore
+
+# Herramientas de Node (pruebas, lint, empaquetado Samsung)
+node_modules/
+.stryker-tmp/
+reports/
+
+# Sistema
+.DS_Store

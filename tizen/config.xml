@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Telón - Configuración de la app para televisores Samsung (Tizen)
+Para: Telón TV
+De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+
+npm run build:tizen copia la app web junto a este archivo y arma el .wgt. La versión
+mínima es Tizen 6.5 (televisores Samsung de 2021 en adelante, Chromium 85): el diseño usa
+gap en flexbox, que no existe antes.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://telon.app/tv" version="1.0.0" viewmodes="maximized">
+    <!-- El package son 10 caracteres alfanuméricos; si se cambia, la TV lo trata como otra app. -->
+    <tizen:application id="TelonTVapp.Telon" package="TelonTVapp" required_version="6.5"/>
+    <tizen:profile name="tv-samsung"/>
+    <content src="index.html"/>
+    <icon src="icon.png"/>
+    <name>Telón</name>
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+    <!-- La app consulta addons en cualquier dominio (incluida la red local), igual que en Android. -->
+    <access origin="*" subdomains="true"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <!-- Necesario para recibir las teclas multimedia (play, pausa, adelantar…) del control. -->
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

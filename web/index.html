@@ -1,0 +1,42 @@
+<!doctype html>
+<!--
+Telón - Página principal del WebView
+Para: Telón TV
+De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+
+Aquí solo va el esqueleto de la interfaz; la lógica vive en js/ como módulos ES.
+En desarrollo se carga js/main.js como módulo. Para Android y Samsung,
+scripts/empaquetar-web.mjs junta todo en telon.js y cambia la etiqueta de abajo: el
+WebView carga la app desde archivos (file://) y ahí los módulos no se pueden cargar.
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!--
+  Política de seguridad: solo corren los scripts de la app (nada inline, nada de eval) y no se
+  embeben objetos ni marcos. Imágenes, video y conexiones quedan abiertos porque los addons
+  pueden estar en cualquier dominio o en la red local. file: cubre el WebView de Android y el
+  paquete de Samsung, que cargan la app desde archivos. Los style="" siguen permitidos: la
+  interfaz los usa y no ejecutan código.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src * data: blob:; media-src * data: blob:; connect-src *; font-src 'self' data: file:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telón</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- ============================================================ -->
+<!-- ESQUELETO DE LA INTERFAZ (los módulos de js/ui pintan dentro de estos contenedores) -->
+<!-- ============================================================ -->
+<div id="app">
+  <div id="screen"></div>
+  <nav id="nav" aria-label="Navegación principal"></nav>
+</div>
+<div id="detail" hidden></div>
+<div id="player" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<!-- El esqueleto de arriba no muestra nada todavía: infra/platform.js ajusta el viewport (TV o
+     celular) antes de que haya algo que acomodar. -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

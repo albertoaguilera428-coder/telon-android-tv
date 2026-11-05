@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+Telón - Manifiesto de la app Android
+Para: Telón TV
+De: Albert Alvear - Desarrollador, Analista de datos, hacker e ingeniero de software pragmático
+
+Un solo APK para celular, tablet y Android TV. Por eso leanback y la pantalla táctil son
+opcionales (required="false"): si alguno fuera obligatorio, Google Play escondería la app
+en los dispositivos que no lo tienen.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <application
         android:banner="@mipmap/ic_launcher"
@@ -11,14 +20,16 @@
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true"
         android:theme="@style/AppTheme">
+        <!-- Sin screenOrientation fija: la app web pide la orientación según el video (setOrientation). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <!-- LAUNCHER pone el ícono en celulares y tablets; LEANBACK_LAUNCHER, en Android TV. -->
+                <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
