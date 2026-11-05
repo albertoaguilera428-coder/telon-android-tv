@@ -341,3 +341,82 @@ test('después de un 429 no se vuelve a consultar ese servidor hasta que pase el
   assert.deepEqual(plain(await red.fetchRemoteJSON('https://saturado.x/catalog/a.json')), { metas: [] });
   appLimite.close();
 });
+
+// ============================================================
+// FUENTES Y SUBTÍTULOS CON ADDONS QUE RESPONDEN, FALLAN O NO SABEN (CASOS DE LA MUTACIÓN)
+// ============================================================
+
+// Una app nueva con respuestas a medida por URL y los avisos de consola a la vista.
+function withAnswers(respuestas) {
+  const app = loadApp({ hasta: 'js/infra/addon-client.js', route: url => respuestas[Object.keys(respuestas).find(parte => url.includes(parte))] || { status: 404 } });
+  const avisos = [];
+  app.window.console.warn = (...partes) => avisos.push(partes.join(' '));
+  return { app, cliente: app.Telon.infra.addonClient, avisos, pedidos: () => app.log.filter(l => l.startsWith('fetch')) };
+}
+
+const conStream = base => ({ base, manifest: { resources: ['stream', 'subtitles'], types: ['series'], idPrefixes: ['tt'] } });
+const sinStream = base => ({ base, manifest: { resources: ['catalog'], types: ['series'] } });
+
+test('a un addon que no ofrece fuentes no se le piden', async () => {
+  const { app, cliente, pedidos } = withAnswers({ 'https://a.x/stream/': { json: { streams: [{ url: 'https://v/1' }] } } });
+  const fuentes = await cliente.resolveStreams([conStream('https://a.x'), sinStream('https://b.x')], 'series', 'tt1');
+  assert.equal(fuentes.length, 1);
+  assert.ok(!pedidos().some(p => p.includes('https://b.x')), 'b.x no tiene el recurso stream');
+  app.close();
+});
+
+test('un addon que contesta sin fuentes, o que falla, no aporta nada; el que falla queda registrado', async () => {
+  const { app, cliente, avisos } = withAnswers({ 'https://a.x/stream/': { json: {} }, 'https://c.x/stream/': { json: { streams: [{ url: 'https://v/c' }] } } });
+  const fuentes = await cliente.resolveStreams([conStream('https://a.x'), conStream('https://b.x'), conStream('https://c.x')], 'series', 'tt1');
+  assert.deepEqual(plain(fuentes).map(f => f.url), ['https://v/c'], 'a.x sin streams y b.x con error no aportan');
+  assert.ok(avisos.some(a => a.includes('https://b.x') && a.includes('no entregó fuentes')), 'el fallo de b.x no se pierde en silencio');
+  assert.ok(!avisos.some(a => a.includes('https://a.x')), 'contestar sin fuentes no es un fallo: a.x no queda registrado como error');
+  app.close();
+});
+
+test('los subtítulos se buscan en las fuentes y en los addons que los ofrecen; se prefiere el español', async () => {
+  const { app, cliente, pedidos } = withAnswers({ 'https://a.x/subtitles/': { json: { subtitles: [{ url: 'https://s/en', lang: 'eng' }, { url: 'https://s/es', lang: 'spa' }] } } });
+  const fuentes = [{ subtitles: [{ url: 'https://s/fr', lang: 'fre' }, { lang: 'spa' }] }];
+  const elegido = await cliente.resolveSubs([conStream('https://a.x'), sinStream('https://b.x')], 'series', 'tt1', fuentes);
+  assert.equal(elegido.url, 'https://s/es', 'el subtítulo sin url se descarta; gana el español');
+  assert.ok(!pedidos().some(p => p.includes('https://b.x')), 'a quien no ofrece subtítulos no se le piden');
+  app.close();
+});
+
+test('sin español se toma el primero; el idioma se reconoce solo al principio del código', async () => {
+  const { app, cliente } = withAnswers({ 'https://a.x/subtitles/': { json: { subtitles: [{ url: 'https://s/pt', lang: 'por' }, { url: 'https://s/tes', lang: 'tes' }] } } });
+  const elegido = await cliente.resolveSubs([conStream('https://a.x')], 'series', 'tt1', []);
+  assert.equal(elegido.url, 'https://s/pt', '«tes» no es español aunque contenga «es»');
+  app.close();
+});
+
+test('si los addons no tienen subtítulos o fallan, no hay subtítulo (y el fallo queda registrado)', async () => {
+  const { app, cliente, avisos } = withAnswers({ 'https://a.x/subtitles/': { json: {} } });
+  const elegido = await cliente.resolveSubs([conStream('https://a.x'), conStream('https://b.x')], 'series', 'tt1', [{}]);
+  assert.equal(elegido, null);
+  assert.ok(avisos.some(a => a.includes('https://b.x') && a.includes('no entregó subtítulos')));
+  assert.ok(!avisos.some(a => a.includes('https://a.x')), 'contestar sin subtítulos no es un fallo');
+  app.close();
+});
+
+test('un addon sin recursos declarados no ofrece nada', () => {
+  assert.equal(cliente.supportsResource({ base: 'x', manifest: {} }, 'stream', 'series', 'tt1'), false);
+});
+
+test('stremio:// solo se reemplaza al principio del enlace', () => {
+  assert.equal(cliente.normalizeBase('https://a.x/?volver=stremio://b'), 'https://a.x/?volver=stremio://b');
+});
+
+test('un SRT que menciona WEBVTT en un diálogo igual se convierte', () => {
+  assert.equal(cliente.convertSrtToVtt('1\n00:00:01,000 --> 00:00:02,000\nWEBVTT es un formato'), 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000\nWEBVTT es un formato');
+});
+
+test('el subtítulo descargado se entrega como WebVTT listo para el reproductor', async () => {
+  const { app, cliente } = withAnswers({ 'https://s/es.srt': { text: '1\n00:00:01,000 --> 00:00:02,000\nHola' } });
+  let archivo = null;
+  app.window.URL.createObjectURL = blob => { archivo = blob; return 'blob:sub'; };
+  assert.equal(await cliente.subBlob('https://s/es.srt'), 'blob:sub');
+  assert.equal(archivo.type, 'text/vtt');
+  assert.ok(archivo.size > 'WEBVTT'.length, 'lleva el contenido convertido');
+  app.close();
+});

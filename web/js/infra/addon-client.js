@@ -49,7 +49,7 @@ async function getJSON(url, ms) {
 // Acepta lo que la gente suele pegar: stremio://, la URL del manifest o la carpeta.
 const normalizeBase = url => url.trim()
   .replace(/^stremio:\/\//i, 'https://')
-  .replace(/\/manifest\.json.*$/i, '')
+  .replace(/\/manifest\.json.*/i, '')
   .replace(/\/+$/, '');
 
 const buildAddonUrl = (addon, recurso, tipo, id, extra) =>
@@ -58,12 +58,14 @@ const buildAddonUrl = (addon, recurso, tipo, id, extra) =>
 const resourceName = recurso => typeof recurso === 'string' ? recurso : recurso.name;
 
 // Un recurso puede restringir tipos e ID por su cuenta o heredar los del manifest.
+// Un recurso escrito como texto ("stream") no tiene types ni idPrefixes: hereda los del manifest.
 function supportsResource(addon, nombre, tipo, id) {
-  for (const recurso of (addon.manifest.resources || [])) {
+  const recursos = addon.manifest.resources;
+  if (!recursos) return false;
+  for (const recurso of recursos) {
     if (resourceName(recurso) !== nombre) continue;
-    const detalle = typeof recurso === 'object' ? recurso : {};
-    const tipos = detalle.types || addon.manifest.types;
-    const prefijos = detalle.idPrefixes || addon.manifest.idPrefixes;
+    const tipos = recurso.types || addon.manifest.types;
+    const prefijos = recurso.idPrefixes || addon.manifest.idPrefixes;
     if (tipo && tipos && tipos.length && !tipos.includes(tipo)) continue;
     if (id && prefijos && prefijos.length && !prefijos.some(prefijo => String(id).startsWith(prefijo))) continue;
     return true;
@@ -85,34 +87,29 @@ function resolveStreams(addons, tipo, idVideo, onFirst, esReproducible = () => t
     .filter(addon => supportsResource(addon, 'stream', tipo, idVideo))
     .map(addon => getJSON(buildAddonUrl(addon, 'stream', tipo, idVideo), ESPERA_FUENTES_MS)
       .then(respuesta => {
-        const fuentes = (respuesta.streams || []).filter(f => f && f.url && esReproducible(f)).map(f => ({ ...f, addon }));
+        const fuentes = (respuesta.streams?.filter(f => f && f.url && esReproducible(f)) ?? []).map(f => ({ ...f, addon }));
         todasLasFuentes.push(...fuentes);
         if (fuentes.length && !yaAvisado && onFirst) {
           yaAvisado = true;
           onFirst(todasLasFuentes.slice());
         }
-        return fuentes;
       })
-      .catch(error => {
-        logIgnored('El addon ' + addon.base + ' no entregó fuentes', error);
-        return [];
-      }));
+      // Un addon que falla no frena a los demás: queda registrado y se sigue.
+      .catch(error => logIgnored('El addon ' + addon.base + ' no entregó fuentes', error)));
   return Promise.all(peticiones).then(() => todasLasFuentes);
 }
 
 // Preferimos subtítulos en español; si no hay, cualquiera es mejor que nada.
 async function resolveSubs(addons, tipo, idVideo, fuentes) {
   const candidatos = [];
-  fuentes.forEach(f => (f.subtitles || []).forEach(s => s && s.url && candidatos.push(s)));
+  const agregar = subtitulo => { if (subtitulo && subtitulo.url) candidatos.push(subtitulo); };
+  fuentes.forEach(f => f.subtitles?.forEach(agregar));
   const peticiones = addons
     .filter(addon => supportsResource(addon, 'subtitles', tipo, idVideo))
     .map(addon => getJSON(buildAddonUrl(addon, 'subtitles', tipo, idVideo))
-      .then(respuesta => respuesta.subtitles || [])
-      .catch(error => {
-        logIgnored('El addon ' + addon.base + ' no entregó subtítulos', error);
-        return [];
-      }));
-  (await Promise.all(peticiones)).flat().forEach(s => s && s.url && candidatos.push(s));
+      .then(respuesta => respuesta.subtitles?.forEach(agregar))
+      .catch(error => logIgnored('El addon ' + addon.base + ' no entregó subtítulos', error)));
+  await Promise.all(peticiones);
   const enEspanol = candidatos.find(s => /^(es|spa)/i.test(s.lang || ''));
   return enEspanol || candidatos[0] || null;
 }
