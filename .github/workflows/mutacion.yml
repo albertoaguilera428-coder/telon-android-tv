@@ -55,13 +55,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Modo incremental: Stryker reutiliza el resultado de los mutantes cuyo código y pruebas
-      # no cambiaron desde la última corrida de este grupo.
+      # Modo incremental: Stryker reutiliza el resultado de los mutantes cuyo código no cambió.
+      # Con el command runner no sabe qué prueba cubre cada mutante, así que NO nota cuando
+      # cambian las pruebas: reutilizaba sobrevivientes que las pruebas nuevas ya matan. Por eso
+      # la caché lleva la huella de las pruebas y la configuración: si cambian, se corre todo.
       - uses: actions/cache@v4
         with:
           path: reports/stryker-incremental-${{ matrix.grupo }}.json
-          key: stryker-${{ matrix.grupo }}-${{ github.sha }}
-          restore-keys: stryker-${{ matrix.grupo }}-
+          key: stryker-${{ matrix.grupo }}-${{ hashFiles('test/**', 'stryker.config.json') }}-${{ github.sha }}
+          restore-keys: stryker-${{ matrix.grupo }}-${{ hashFiles('test/**', 'stryker.config.json') }}-
       - name: Mutación de ${{ matrix.grupo }}
         run: npx stryker run --mutate "${{ matrix.archivos }}" --incremental --incrementalFile reports/stryker-incremental-${{ matrix.grupo }}.json
       - uses: actions/upload-artifact@v4
