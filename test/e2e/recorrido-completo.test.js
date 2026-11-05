@@ -39,7 +39,7 @@ function createNetwork() {
     if (fallas.sinInternet && !url.includes('version.json')) return solicitud.abort('internetdisconnected');
     if (fallas.catalogoCaido && url.includes('cinemeta-es/catalog/series/top.json')) return solicitud.fulfill({ status: 500, body: '' });
     if (fallas.firebase && url.includes(`accounts:${fallas.firebase.operacion}`)) return fulfillWith(solicitud, { json: { error: { message: fallas.firebase.codigo } } });
-    if (fallas.versionNueva && url.includes('version.json')) return fulfillWith(solicitud, { json: { version: 3, notes: 'Mejoras', url: 'https://ejemplo.com/telon.apk' } });
+    if (fallas.versionNueva && url.includes('version.json')) return fulfillWith(solicitud, { json: { version: 4, notes: 'Mejoras', url: 'https://ejemplo.com/telon.apk' } });
     return answerFromFixtures(solicitud);
   }
   return { fallas, answer };

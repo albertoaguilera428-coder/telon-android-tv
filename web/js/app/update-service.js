@@ -12,7 +12,10 @@ import { logIgnored } from '../infra/log.js';
 import { fetchRemoteJSON } from '../infra/http.js';
 import * as plataforma from '../infra/platform.js';
 
-const VERSION_TELON = 2;
+// Tiene que coincidir con versionCode de app/build.gradle (lo revisa test/unit/update.test.js) y
+// subir con cada APK que se publique: si version.json anuncia un número mayor que este, la app
+// recién actualizada volvería a ofrecer la misma actualización una y otra vez.
+const VERSION_TELON = 3;
 const URL_VERSION = 'https://insanos.net/telon/version.json';
 
 // Devuelve { version, url, notes } si hay una versión más nueva, o null.

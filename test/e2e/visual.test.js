@@ -197,7 +197,7 @@ test('biblioteca, addons, reproductor y avisos se ven bien en los cuatro disposi
         // El aviso aparece por el camino real: al arrancar, el servidor ofrece una versión más nueva.
         await contexto.route(url => url.href.includes('/telon/version.json'), solicitud => solicitud.fulfill({
           status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({ version: 3, notes: 'Episodios más rápidos y un diseño nuevo.', url: 'https://ejemplo.com/telon.apk' })
+          body: JSON.stringify({ version: 4, notes: 'Episodios más rápidos y un diseño nuevo.', url: 'https://ejemplo.com/telon.apk' })
         }));
         await pagina.reload();
         if (dispositivo.modo === 'tizen') {

@@ -30,8 +30,10 @@ android {
         applicationId 'app.telon.tv'
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        // Igual a VERSION_TELON de web/js/app/update-service.js. Android solo instala una
+        // actualización encima si este número no baja y la firma es la misma.
+        versionCode 3
+        versionName '3.0'
     }
     signingConfigs {
         release {

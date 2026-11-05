@@ -268,9 +268,45 @@ keyAlias=telon
 keyPassword=…
 ```
 
-> Quien tenga instalada una versión firmada con la clave de debug tendrá que
-> desinstalarla antes de instalar la firmada con la clave nueva: Android no acepta
-> una actualización con otra firma.
+> Android solo instala una actualización encima si la firma es **la misma** que la de la
+> versión instalada. Las versiones 1 y 2 se firmaron con el `debug.keystore` de la máquina
+> donde se compilaron (`~/.android/debug.keystore`). Para que los que ya la tienen
+> actualicen sin perder nada, firma con ese mismo archivo:
+>
+> ```properties
+> storeFile=/ruta/a/.android/debug.keystore
+> storePassword=android
+> keyAlias=androiddebugkey
+> keyPassword=android
+> ```
+>
+> Cambiar a una clave nueva obliga a todos a desinstalar primero, y al desinstalar se
+> borran los perfiles, Mi lista y el historial del aparato (la cuenta no: está en Firebase).
+> Si se cambia, que sea una sola vez y avisando.
+
+## Publicar una actualización (Android)
+
+La app instalada consulta `https://insanos.net/telon/version.json` cada vez que arranca.
+Si el número publicado es mayor que el suyo (`VERSION_TELON`), muestra «Nueva versión
+disponible» y «Actualizar» abre la descarga del APK.
+
+1. Sube el número en `web/js/app/update-service.js` (`VERSION_TELON`) y en
+   `app/build.gradle` (`versionCode`). Deben ser iguales (lo revisa una prueba). Si
+   `version.json` anuncia un número mayor que el de la app nueva, el aviso no se va nunca.
+2. `npm ci && npm test`, y después `./gradlew assembleRelease` con la firma de siempre
+   (ver arriba). El APK queda en `app/build/outputs/apk/release/app-release.apk`.
+3. Pruébalo primero en un aparato: `adb install -r app-release.apk` actualiza sin borrar
+   datos. Si dice que la firma no coincide, el APK no se firmó con la clave de siempre.
+4. Sube el APK como `https://insanos.net/telon/Telon.apk`.
+5. Edita `version.json` por último: subir el número es lo que avisa a todos.
+
+```json
+{ "version": 3, "url": "https://insanos.net/telon/Telon.apk", "notes": "Qué cambió, en una línea." }
+```
+
+En algunos televisores no hay navegador y «Actualizar» no abre nada: ahí se instala con la
+app Downloader (pegando la URL del APK) o con `adb install -r`. En Samsung no hay aviso: el
+`.wgt` se reinstala a mano (ver «Samsung (Tizen)»).
 
 ## Samsung (Tizen)
 
