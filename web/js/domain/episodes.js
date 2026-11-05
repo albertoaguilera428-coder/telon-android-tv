@@ -8,12 +8,12 @@ Lógica pura: sin DOM, red ni almacenamiento.
 */
 'use strict';
 
-// Orden por temporada y episodio; si faltan datos se respeta el orden en que vinieron.
+// Orden por temporada y episodio; si faltan datos se respeta el orden en que vinieron (sort es
+// estable desde ES2019: los empates conservan el orden de llegada).
 const sortVideos = listaVideos => listaVideos
   .map((video, i) => ({ video, i }))
   .sort((a, b) => ((a.video.season || 0) - (b.video.season || 0))
-    || ((a.video.episode ?? a.i) - (b.video.episode ?? b.i))
-    || (a.i - b.i))
+    || ((a.video.episode ?? a.i) - (b.video.episode ?? b.i)))
   .map(x => x.video);
 
 // Algunos addons no mandan la lista de videos pero sí dicen "24 episodios" en la descripción.

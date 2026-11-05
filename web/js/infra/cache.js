@@ -23,8 +23,9 @@ cuestan O(1).
 // AYUDAS
 // ============================================================
 
+// Object.isFrozen ya da true para null y los valores simples (textos, números): no hay que congelarlos.
 function deepFreeze(valor) {
-  if (valor && typeof valor === 'object' && !Object.isFrozen(valor)) {
+  if (!Object.isFrozen(valor)) {
     Object.freeze(valor);
     Object.values(valor).forEach(deepFreeze);
   }
@@ -40,6 +41,9 @@ function createBoundedCache({ maximo, vidaMs }) {
   // Cargas en curso por clave (single-flight): mientras una está en vuelo, los demás la esperan.
   const enCurso = new Map();
   const metricas = { aciertos: 0, fallos: 0, descartes: 0, cargasCompartidas: 0 };
+  // Cada clear() abre una generación nueva (un objeto distinto): lo que estaba en vuelo ya no puede
+  // guardar su resultado.
+  let generacion = {};
 
   function get(clave) {
     const entrada = entradas.get(clave);
@@ -68,7 +72,11 @@ function createBoundedCache({ maximo, vidaMs }) {
     const guardado = get(clave);
     if (guardado !== undefined) return Promise.resolve(guardado);
     // La carga arranca ya (como antes de la caché); si el cargador lanza, se vuelve un rechazo.
+    // Si mientras tanto se recargó (clear), el resultado llega a quien lo pidió pero no se guarda:
+    // antes una respuesta vieja volvía a llenar la caché justo después de que el usuario recargara.
+    const generacionDeLaCarga = generacion;
     const carga = new Promise(resolver => resolver(cargador())).then(valor => {
+      if (generacionDeLaCarga !== generacion) return deepFreeze(valor);
       set(clave, valor);
       return entradas.get(clave).valor;
     });
@@ -83,6 +91,7 @@ function createBoundedCache({ maximo, vidaMs }) {
   function clear() {
     entradas.clear();
     enCurso.clear();
+    generacion = {};
   }
 
   const stats = () => ({ ...metricas, tamano: entradas.size, maximo });

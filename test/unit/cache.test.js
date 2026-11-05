@@ -111,3 +111,57 @@ test('«Recargar addons» trae contenido nuevo de SoloLatino y Narto en vez de s
   assert.equal(contarPeticiones(app, 'narto-drama.com/home'), 1);
   app.close();
 });
+
+// ============================================================
+// CASOS QUE SEÑALARON LAS PRUEBAS DE MUTACIÓN
+// ============================================================
+
+test('lo vencido cuenta como fallo y no se devuelve', () => {
+  const { app, cache } = nuevaCache({ vidaMs: 1000 });
+  let ahora = 0;
+  app.window.Date.now = () => ahora;
+  cache.set('x', 1);
+  ahora = 1000;
+  assert.equal(cache.get('x'), undefined);
+  assert.equal(cache.stats().fallos, 1);
+  app.close();
+});
+
+test('volver a guardar una clave la vuelve la más reciente (la que se descarta es otra)', () => {
+  const { app, cache } = nuevaCache({ maximo: 2 });
+  cache.set('a', 1);
+  cache.set('b', 2);
+  cache.set('a', 3);
+  cache.set('c', 4);
+  assert.equal(cache.get('a'), 3, 'a se guardó de nuevo: no es la más vieja');
+  assert.equal(cache.get('b'), undefined, 'se descartó b');
+  app.close();
+});
+
+test('una estructura que se apunta a sí misma se guarda sin colgarse', () => {
+  const { app, cache } = nuevaCache();
+  const ficha = { name: 'Serie' };
+  ficha.yoMismo = ficha;
+  cache.set('ficha', ficha);
+  assert.equal(Object.isFrozen(cache.get('ficha').yoMismo), true);
+  app.close();
+});
+
+test('después de clear(), un pedido nuevo vuelve a cargar y la respuesta vieja no ensucia la caché', async () => {
+  const { app, cache } = nuevaCache();
+  let cargas = 0;
+  const terminar = [];
+  const cargador = () => { cargas++; return new Promise(r => terminar.push(r)); };
+  cache.getOrLoad('x', cargador);
+  cache.clear();
+  const nueva = cache.getOrLoad('x', cargador);
+  assert.equal(cargas, 2, 'clear() también olvida las cargas en curso');
+  terminar[0]('vieja');
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(cache.get('x'), undefined, 'la respuesta vieja, que llegó después de recargar, no se guarda');
+  cache.getOrLoad('x', cargador);
+  assert.equal(cargas, 2, 'la carga vieja al terminar no borra la nueva: el pedido se suma a la nueva');
+  terminar[1]('nueva');
+  assert.equal(await nueva, 'nueva');
+  app.close();
+});
