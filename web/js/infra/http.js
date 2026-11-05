@@ -42,10 +42,9 @@ function parseRetryAfter(valor, ahora) {
   return Math.min(Math.max(ms, 0), ESPERA_429_MAXIMA_MS);
 }
 
+// Sin espera registrada, restante es NaN y NaN > 0 es falso: devuelve 0.
 function secondsToWait(origen) {
-  const hasta = esperaPorOrigen[origen];
-  if (!hasta) return 0;
-  const restante = hasta - Date.now();
+  const restante = esperaPorOrigen[origen] - Date.now();
   return restante > 0 ? Math.ceil(restante / 1000) : 0;
 }
 

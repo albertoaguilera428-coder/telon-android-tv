@@ -92,3 +92,77 @@ test('un error que nadie atrapó se avisa una sola vez aunque se repita', async 
   assert.match(app.document.getElementById('toast').textContent, /Algo falló/);
   app.close();
 });
+
+// ============================================================
+// CLASIFICACIÓN DE ERRORES DE RED (CASOS QUE SEÑALÓ LA MUTACIÓN)
+// ============================================================
+
+const cargarHttp = () => { const app = loadApp({ hasta: 'js/infra/http.js' }); return { app, http: app.Telon.infra.http }; };
+
+test('una cancelación pedida desde afuera se informa como problema de conexión', async () => {
+  const { app, http } = cargarHttp();
+  const cancelada = Object.assign(new app.window.Error('cancelada'), { name: 'AbortError' });
+  app.window.fetch = async () => { throw cancelada; };
+  await assert.rejects(http.politeFetch('https://x/a', { signal: new app.window.AbortController().signal }), error => error.name === 'NetworkError' && error.cause === cancelada);
+  app.close();
+});
+
+test('un error desconocido de fetch se devuelve tal cual, sin disfrazarlo de problema de conexión', async () => {
+  const { app, http } = cargarHttp();
+  const raro = new app.window.RangeError('algo inesperado');
+  app.window.fetch = async () => { throw raro; };
+  await assert.rejects(http.politeFetch('https://x/a'), error => error === raro);
+  app.window.fetch = async () => { throw undefined; };
+  await assert.rejects(http.politeFetch('https://x/a'), error => error === undefined);
+  app.close();
+});
+
+test('cortar por tiempo conserva la causa del corte', async () => {
+  const { app, http } = cargarHttp();
+  app.window.fetch = (url, opciones) => new Promise((_, rechazar) => opciones.signal.addEventListener('abort', () => rechazar(Object.assign(new app.window.Error('abort'), { name: 'AbortError' }))));
+  await assert.rejects(http.politeFetch('https://x/a', {}, 20), error => error.name === 'TimeoutError' && error.cause && error.cause.name === 'AbortError');
+  app.close();
+});
+
+test('al terminar una petición se cancela su temporizador (no queda vivo para cortarla tarde)', async () => {
+  const { app, http } = cargarHttp();
+  const cancelados = [];
+  const original = app.window.clearTimeout;
+  app.window.clearTimeout = id => { cancelados.push(id); original(id); };
+  app.window.fetch = async () => ({ ok: true, status: 200, headers: { get: () => null }, json: async () => ({}) });
+  await http.politeFetch('https://x/a');
+  assert.equal(cancelados.filter(id => id !== null && id !== undefined).length, 1);
+  app.close();
+});
+
+test('un 429 sin cabeceras usa la espera por defecto (30 s) sin romper', async () => {
+  const { app, http } = cargarHttp();
+  app.window.fetch = async () => ({ ok: false, status: 429 });
+  // El reloj de prueba avanza 1 s por consulta: entre registrar y leer la espera pasa un segundo.
+  await assert.rejects(http.fetchRemoteJSON('https://sin-cabeceras.test/a.json'), error => error.name === 'RateLimitError' && error.segundos >= 29 && error.segundos <= 30);
+  app.close();
+});
+
+test('si leer la respuesta falla por otra cosa que JSON roto, es un problema de conexión con su causa', async () => {
+  const { app, http } = cargarHttp();
+  const cortada = new app.window.TypeError('la conexión se cortó a mitad');
+  app.window.fetch = async () => ({ ok: true, status: 200, json: async () => { throw cortada; } });
+  await assert.rejects(http.fetchRemoteJSON('https://x/a.json'), error => error.name === 'NetworkError' && error.cause === cortada);
+  app.close();
+});
+
+test('una respuesta normal no activa la espera del 429: la siguiente petición al mismo servidor sale', async () => {
+  const { app, http } = cargarHttp();
+  app.window.fetch = async () => ({ ok: true, status: 200, headers: { get: () => '600' }, json: async () => ({}) });
+  await http.politeFetch('https://mismo.test/a');
+  await assert.doesNotReject(http.politeFetch('https://mismo.test/b'), 'un 200 (aunque traiga Retry-After) no bloquea al servidor');
+  app.close();
+});
+
+test('si fetch no llega al servidor (TypeError), politeFetch lo informa como problema de conexión', async () => {
+  const { app, http } = cargarHttp();
+  const sinRed = new app.window.TypeError('Failed to fetch');
+  app.window.fetch = async () => { throw sinRed; };
+  await assert.rejects(http.politeFetch('https://x/a'), error => error.name === 'NetworkError' && error.cause === sinRed);
+  app.close();
+});
